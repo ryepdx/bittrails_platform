@@ -1,0 +1,44 @@
+body {
+    padding: 0px;
+    margin: 0px;
+    background-color: #D31900;
+}
+
+.card-base {
+    background-color: #FF6600;
+    margin: 10%;
+}
+
+.card, .card-base {
+    padding: 10px;
+    border-radius: 10px;
+}
+
+.card {
+    background-color: #FCFAED;
+    padding: 5%;
+}
+.card h1 {
+    font-family: 'Sanchez', serif;
+    font-size: 2em;
+    font-weight: normal;
+}
+
+.card p {
+    font-family: 'Ubuntu';
+    font-size: 1em;
+}
+
+#chart {
+    padding: 10px; 
+    margin-bottom: 10px;
+}
+
+#logo {
+    font-family: 'Ubuntu';
+    font-size: 3em;
+    color: #FFF2AF;
+    position: absolute;
+    right: 20px;
+    bottom: 10px;
+}

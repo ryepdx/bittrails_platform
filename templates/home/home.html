@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block extra_head %}
+{% if show_tooltip %}
+<link rel="stylesheet" href="/static/stylesheets/tipsy.css" />
+<script type="text/javascript" src="/static/javascripts/jquery.tipsy.js"></script>
+<script type="text/javascript">
+$(document).ready(function () {
+    setTimeout(function () {
+        button = $('div.buttons img.connect:first');
+        button.tipsy({gravity: 'w', trigger: 'manual',
+            fade: true}).tipsy('show').hover(
+            function () { button.tipsy('hide'); }
+        ); }, 100
+    );
+});
+</script>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="six columns buttons">
+    <h3 class="subheader">Your Services</h3>
+    {% for service in connected %}
+        <img src='/static/images/buttons/{{ service }}.png' />
+    {% endfor %}
+    
+    <h3 class="subheader">Available Services</h3>
+    {% for service in not_connected %}
+        <a href="/auth/{{ service }}/begin"><img class='connect'
+            title="Click here to connect your {{ service.title() }} account."
+            src='/static/images/buttons/{{ service }}.png' /></a>
+    {% endfor %}
+    {% if not_connected|length == 0 %}
+        <p><em>You've connected all available services!</em></p>
+    {% endif %}
+</div>
+<div class="six columns">
+    <h3 class="subheader">Your Data</h3>
+    {% if tweets %}
+        {% include 'home/twitter.html' %}
+    {% endif %}
+    
+    {% if checkins %}
+        {% include 'home/foursquare.html' %}
+    {% endif %}
+</div>
+{% endblock %}

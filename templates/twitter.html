@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Bit Trails - Cross the Streams</title>
+  </head>
+  <body>
+    {% block user %}
+      {% if 'twitter_user' not in session %}
+        <a href="twitter/login">Sign in with Twitter</a>
+      {% else %}
+        Welcome @{{session['twitter_user']}}!
+        <a href="twitter/logout">Sign Out</a>
+        <hr/>
+        Tweets for @{{session['user']}}
+        {% if 'tweets' in session %}
+          {% for tweet in session['tweets'] %}
+            <p>{{tweet['timestamp']}} : {{tweet['text']}}</p>
+          {% endfor %}
+        {% endif %}
+      {% endif %}
+    {% endblock %}
+  </body>
+</html>

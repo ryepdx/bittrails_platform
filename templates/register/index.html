@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="six columns">
+    <h2 class="subheader">Register</h2>
+    <p>
+        <a href="/auth/twitter/?next={{ register_url }}"{%
+        if "twitter" in selected %} class="selected"{% endif %}>Twitter</a>
+        
+        <a href="/auth/foursquare/?next={{ register_url }}"{%
+        if "foursquare" in selected %} class="selected"{% endif %}>Foursquare</a>
+        
+        <form action='' method="post">
+        {{ form.csrf_token }}
+        {{ form.email.label }}: {{ form.email}}
+        <input type="submit" value="Register!" />
+        </form>
+    </p>
+</div>
+<div class="six columns">
+    <h2 class="subheader">What is this?</h2>
+    <p>Connect Bit Trails to at least one of the services you're interested in pulling data from, and then enter your e-mail address to get started!</p>
+</div>
+{% endblock %}

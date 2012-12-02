@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+    <head>
+        <title>BitTrails</title>
+        <link rel="stylesheet" type="text/css" href="base.css" />
+        <link href='http://fonts.googleapis.com/css?family=Sanchez' rel='stylesheet' type='text/css'>
+        <link href='http://fonts.googleapis.com/css?family=Ubuntu' rel='stylesheet' type='text/css'>
+
+        <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+        <script type="text/javascript">
+            google.load('jquery', '1.6.2');
+            google.load('visualization', '1.0', {'packages':['corechart']});
+            google.setOnLoadCallback(loadCharts);
+
+            function loadCharts() {
+                loadChart("chart",
+                    "{{ question }}",
+                    {{ legend }},
+                    {{ data }});
+            }
+
+            function loadChart(chartID, chartTitle, dataTitles, data) {
+                var chart = new google.visualization.LineChart(document.getElementById("chart"));
+                var table = new google.visualization.DataTable();
+                var options = {'title':null,
+                               'height':250,
+                               'width':700,
+                               'backgroundColor':'#FCFAED',
+                               'legend': 'top'};
+                    
+                table.addColumn('date', 'Date');
+                for (col in dataTitles) {
+                    table.addColumn('number', dataTitles[col]);
+                }
+
+                for (date_str in data) {
+                    table.addRow([new Date(date_str), data[date_str][0], data[date_str][1], data[date_str][2]]);
+                }
+                    
+                chart.draw(table, options);
+            }
+        </script>
+        <script type="text/javascript">var switchTo5x=true;</script>
+<script type="text/javascript" src="http://w.sharethis.com/button/buttons.js"></script>
+<script type="text/javascript" src="http://s.sharethis.com/loader.js"></script>
+    <head>
+    <body>
+        <div id="logo">Bit Trails</div>
+        <div class="card-base">
+            <center>
+            <div class="card" id="chart">
+                
+            </div>
+            </center>
+            <div class="card">
+                <h1>{{ message }}</h1>
+            </div>
+        </div>
+        <script type="text/javascript">stLight.options({publisher: "afc2e252-db4a-483b-aa3d-a33ce9b7ca1a"});</script>
+<script>
+var options={ "publisher": "afc2e252-db4a-483b-aa3d-a33ce9b7ca1a", "position": "left", "ad": { "visible": false, "openDelay": 5, "closeDelay": 0}, "chicklets": { "items": ["facebook", "twitter", "googleplus", "pinterest"]}};
+var st_hover_widget = new sharethis.widgets.hoverbuttons(options);
+</script>
+    </body>
+<html>

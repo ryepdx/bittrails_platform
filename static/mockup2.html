@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+    <head>
+        <title>BitTrails</title>
+        <link rel="stylesheet" type="text/css" href="base.css" />
+        <link href='http://fonts.googleapis.com/css?family=Sanchez' rel='stylesheet' type='text/css'>
+        <link href='http://fonts.googleapis.com/css?family=Ubuntu' rel='stylesheet' type='text/css'>
+
+        <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+        <script type="text/javascript">
+            google.load('jquery', '1.6.2');
+            google.load('visualization', '1.0', {'packages':['corechart']});
+            google.setOnLoadCallback(loadCharts);
+
+            function loadCharts() {
+                loadChart("chart",
+                    "Are my video game habits affecting my grades?",
+                    {"hours": "Hours on Xbox LIVE",
+                     "gpa": "Grades "
+                    },
+                    {"Week of 2012/10/21": [14,3.5],
+                     "Week of 2012/10/28": [40,2.1],
+                     "Week of 2012/11/4": [20,3.0],
+                     "Week of 2012/11/11": [7,3.8],
+                     "Week of 2012/11/18": [0,4.0]});
+            }
+
+            function loadChart(chartID, chartTitle, dataTitles, data) {
+                var chart = new google.visualization.LineChart(document.getElementById("chart"));
+                var table = new google.visualization.DataTable();
+                var options = {'title':null,
+                               'height':250,
+                               'width':700,
+                               'backgroundColor':'#FCFAED',
+                               vAxes: {0: {logScale: false},
+                    1: {logScale: false, maxValue: 4}},
+                     series:{
+                       0:{targetAxisIndex:0},
+                       1:{targetAxisIndex:1}}};
+                    
+                table.addColumn('date', 'Date');
+                for (col in dataTitles) {
+                    table.addColumn('number', dataTitles[col]);
+                }
+
+                for (date_str in data) {
+                    table.addRow([new Date(date_str), data[date_str][0], data[date_str][1]]);
+                }
+                    
+                chart.draw(table, options);
+            }
+        </script>
+        <script type="text/javascript">var switchTo5x=true;</script>
+<script type="text/javascript" src="http://w.sharethis.com/button/buttons.js"></script>
+<script type="text/javascript" src="http://s.sharethis.com/loader.js"></script>
+
+    <head>
+    <body>
+        <div id="logo">Bit Trails</div>
+        <div class="card-base">
+            <center>
+            <div class="card" id="chart">
+                
+            </div>
+            </center>
+            <div class="card">
+                <h1>It looks like your hours on Xbox LIVE seriously affects your grades.</h1>
+            </div>
+        </div>
+   <script>
+var options={ "publisher": "afc2e252-db4a-483b-aa3d-a33ce9b7ca1a", "position": "left", "ad": { "visible": false, "openDelay": 5, "closeDelay": 0}, "chicklets": { "items": ["facebook", "twitter", "googleplus", "pinterest"]}};
+var st_hover_widget = new sharethis.widgets.hoverbuttons(options);
+</script>     
+    </body>
+<html>
