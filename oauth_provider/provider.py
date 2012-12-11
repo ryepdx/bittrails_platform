@@ -9,6 +9,18 @@ from utils import require_openid
 
 class BitTrailsProvider(OAuthProvider):
 
+    @property
+    def enforce_ssl(self):
+        return False
+
+    @property
+    def realms(self):
+        return [u"secret", u"trolling"]
+        
+    @property
+    def nonce_length(self):
+        return 20, 40
+
     def init_app(self, app):
         pass
         
@@ -23,17 +35,6 @@ class BitTrailsProvider(OAuthProvider):
         blueprint.add_url_rule(self.authorize_url, view_func=self.authorize,
                          methods=[u'GET', u'POST'])
 
-    @property
-    def enforce_ssl(self):
-        return False
-
-    @property
-    def realms(self):
-        return [u"secret", u"trolling"]
-        
-    @property
-    def nonce_length(self):
-        return 20, 40
 
     @require_openid
     def authorize(self):
@@ -104,7 +105,7 @@ class BitTrailsProvider(OAuthProvider):
         client = Client.find_one({'client_key':client_key})
         
         return client != None and (
-            len(client['callback']) == 1 and redirect_uri is None
+            len(client['callbacks']) == 1 and redirect_uri is None
             or redirect_uri in (x for x in client['callbacks']))
         
         

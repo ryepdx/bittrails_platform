@@ -1,5 +1,5 @@
-from flask_rauth import RauthOAuth1, RauthOAuth2, session
-from flask import redirect, url_for, request, Blueprint, render_template
+from flask_rauth import RauthOAuth1, RauthOAuth2
+from flask import redirect, url_for, request, Blueprint, render_template, session
 from blinker import Namespace
 from auth_settings import TOKENS_KEY
 from auth import signals

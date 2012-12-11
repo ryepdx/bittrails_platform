@@ -9,9 +9,30 @@
     {% block extra_head %}{% endblock %}
   </head>
   <body>
-      <div class="twelve columns">
-          <h1>Bit Trails <span class="subheader">Dashboard</span></h1>
-      </div>
-    {% block content %}{% endblock %}
+    <nav class="top-bar" style="margin-bottom: 10px">
+        <ul class="left">
+            <li class="name"><h1><a href="#">Bit Trails <span class="subheader" style="color:white">Platform</span></a></h1></li>
+          {% if request.path == url_for('.index') %} <li class="active"> {% else %} <li> {% endif %}
+          <a href="{{ url_for('.index') }}">Overview</a> </li>
+          {% if g.user %}
+          {% if request.path == url_for('.edit_profile') %} <li class="active"> {% else %} <li> {% endif %}
+          <a href="{{ url_for('.edit_profile') }}">Profile</a> </li>
+          {% if request.path == url_for('.register') %} <li class="active"> {% else %} <li> {% endif %}
+          <a href="{{ url_for('.register') }}">Clients</a></li>
+          {% endif %}
+          
+        </ul>
+        <ul class="right">
+          {% if g.user %}
+          <li><a href="{{ url_for('.logout') }}">Sign Out [{{ g.user.name }}]</a>
+          {% else %}
+          <li><a href="{{ url_for('.login') }}">sign in</a>
+          {% endif %}
+        </ul>
+    </nav>
+    <div class="twelve columns">
+        
+        {% block content %}{% endblock %}
+        </div>
     </body>
 </html>

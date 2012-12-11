@@ -1,9 +1,11 @@
-{% extends "layout.html" %}
+{% extends "base.html" %}
 {% block content %}
+<div class="twelve columns">
 {% if not g.user %}
 <p> Sign in with OpenID to start building an app on the Bit Trails platform.</p>
 {% else %}
-<p> Register an obtain a <em>client_key</em> as well as a <em>client_secret</em>. These credentials can then be used to connect to the Bit Trails API using an OAuth v1 client.
+<p> Register and obtain a <em>client_key</em> as well as a <em>client_secret</em>. These credentials can then be used to connect to the Bit Trails API using an OAuth v1 client.
 </p>
 {% endif %}
+</div>
 {% endblock %}

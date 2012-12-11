@@ -9,7 +9,7 @@ from flask.ext.openid import OpenID
 oid = OpenID(current_app)
 
 
-@app.before_request
+@current_app.before_request
 def before_request():
     g.user = None
     if 'openid' in session:

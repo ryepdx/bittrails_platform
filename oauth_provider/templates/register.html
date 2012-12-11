@@ -1,34 +1,27 @@
-{% extends "layout.html" %}
+{% extends "base.html" %}
 {% block content %}
+<div class="five columns">
+    <h3 class="">Create A New Client</h3>
+    
+    <form method="POST" action="{{ url_for('.register') }}">
+        <label>Title </label><input type="text" name="name"/>
+        <label>Description </label><input type="text" name="description"/>
+        <label>Callback URI </label><input type="text" name="callback"/>
+        <br/>
+        <button type="submit" class="button">Register New Client</button>
+    </form>
+</div>
+
 {% if clients %}
-<h3> Registered clients </h3>
-<br/>
-<table class="table table-striped">
-    <thead>
-        <tr>
-        <th> Title </th>
-        <th> Client key </th>
-        <th> Client secret </th>
-        <th> Public key </th>
-    </tr>
-    </thead>
+<div class="six columns">
+    <h3 class="">Registered Clients</h3>
     {% for client in clients %}
-    <tr>
-        <td> {{ client.name }} </td>
-        <td> {{ client.client_key }} </td>
-        <td> {{ client.secret }} </td>
-        <td> {{ client.pubkey }} </td>
-    </tr>    
+    <p>
+        <strong>Name:</strong> {{ client.name }}<br />
+        <strong>Key:</strong> {{ client.client_key }}<br />
+        <strong>Secret:</strong> {{ client.secret }}
+    </p>
     {% endfor %}
-</table>
+</div>
 {% endif %}
-<h3> Register new client </h3>
-<form method="POST" action="{{ url_for('.register') }}">
-    <label>Title </label><input type="text" name="name"/>
-    <label>Description </label><input type="text" name="description"/>
-    <label>Callback URI </label><input type="text" name="callback"/>
-    <label>RSA public key </label><textarea name="pubkey"></textarea>
-    <br/>
-    <button type="submit" class="btn">Register new client</button>
-</form>
 {% endblock %}

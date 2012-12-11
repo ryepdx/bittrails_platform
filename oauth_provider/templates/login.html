@@ -1,12 +1,16 @@
-{% extends "layout.html" %}
+{% extends "base.html" %}
 {% block title %}Sign in{% endblock %}
 {% block content %}
-  <form action="" method="POST">
-    {% if error %}<p class=error><strong>Error:</strong> {{ error }}</p>{% endif %}
-    <label>OpenID</label>
-      <input type=text name=openid size=30/>
-      <br/>
-      <button type="submit" class="btn">Sign in</button>
-      <input type=hidden name=next value="{{ next }}">
-  </form>
+<div class="row collapse" style="margin: 0px;">
+    <div class="six columns">
+      <form action="" method="POST">
+        {% if error %}<p class=error><strong>Error:</strong> {{ error }}</p>{% endif %}
+        <div class="row collapse">
+            <input type="text" name="openid" placeholder="Enter your OpenID URL" size="30" />
+            <input type=hidden name=next value="{{ next }}">
+            <button type="submit" class="button">Sign in</button>
+        </div>
+      </form>
+    </div>
+</div>
 {% endblock %}
