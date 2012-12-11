@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="five columns">
-    <h3 class="">Create A New Client</h3>
+    <h3>Create A New Client</h3>
     
     <form method="POST" action="{{ url_for('.register') }}">
         <label>Title </label><input type="text" name="name"/>
@@ -14,7 +14,7 @@
 
 {% if clients %}
 <div class="six columns">
-    <h3 class="">Registered Clients</h3>
+    <h3>Registered Clients</h3>
     {% for client in clients %}
     <p>
         <strong>Name:</strong> {{ client.name }}<br />
