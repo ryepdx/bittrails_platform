@@ -16,21 +16,22 @@ TODO: Split the below class into two classes? Right now it mixes the OAuth API
 concept and the Blueprint concept.
 '''
 
-class OAuthBlueprintBase(Blueprint):
+class OAuthBlueprint(Blueprint):
     """
     Creates the endpoints necessary to connect to a webservice using OAuth.
     
     Sends a blinker signal called 'oauth_completed' when OAuth is completed.
     """
     
-    def __init__(self, name, oauth_refused_view = '.index',
+    def __init__(self, name, api, oauth_refused_view = '.index',
     oauth_completed_view = '.index'):
         """
         Dynamically builds views and creates endpoints in the routing table for
         connecting to an OAuth-protected webservice.
         """
-        super(OAuthBlueprintBase, self).__init__(name, __name__)
+        super(OAuthBlueprint, self).__init__(name, __name__)
         
+        self.api = api
         self.oauth_refused_view = oauth_refused_view
         self.oauth_completed_view = oauth_completed_view
         
@@ -73,6 +74,12 @@ class OAuthBlueprintBase(Blueprint):
             signals.oauth_completed.send(self, response = resp,
                 access_token = access_token)
             
+            token_key = request.args.get(u"first_oauth_token", None)
+            
+            if token_key:
+                return redirect('%s?oauth_token=%s&done' % 
+                    (url_for('oauth_provider.authorize'), token_key))
+                
             return redirect(url_for(self.oauth_completed_view))
         return oauth_finished
 
@@ -97,54 +104,3 @@ class FoursquareOAuth(OAuth2):
         uri = uri + '&oauth_token=%s' % user.access_keys[self.name]
         return super(FoursquareOAuth, self).request(method, uri,
             user = user, **kwargs)
-            
-
-class OAuthBlueprint(OAuthBlueprintBase):
-    """
-    Creates the endpoints necessary to connect to a webservice using OAuth.
-    
-    Sends a blinker signal called 'oauth_completed' when OAuth is completed.
-    """
-    
-    def __init__(self, name, base_url, request_token_url, access_token_url,
-    authorize_url, consumer_key, consumer_secret, **kwargs):
-        """
-        Dynamically builds views and creates endpoints in the routing table for
-        connecting to an OAuth-protected webservice.
-        """
-        
-        self.api = OAuth(
-            name = name,
-            base_url = base_url,
-            request_token_url = request_token_url,
-            access_token_url = access_token_url,
-            authorize_url = authorize_url,
-            consumer_key = consumer_key,
-            consumer_secret = consumer_secret
-        )
-        return super(OAuthBlueprint, self).__init__(name, **kwargs)
-            
-class OAuth2Blueprint(OAuthBlueprintBase):
-    """
-    Creates the endpoints necessary to connect to a webservice using OAuth.
-    
-    Sends a blinker signal called 'oauth_completed' when OAuth is completed.
-    """
-    
-    def __init__(self, name, base_url, access_token_url, authorize_url, 
-    consumer_key, consumer_secret, oauth_class = OAuth2, **kwargs):
-        """
-        Dynamically builds views and creates endpoints in the routing table for
-        connecting to an OAuth-protected webservice.
-        """
-        
-        self.api = oauth_class(
-            name = name,
-            base_url = base_url,
-            access_token_url = access_token_url,
-            authorize_url = authorize_url,
-            consumer_key = consumer_key,
-            consumer_secret = consumer_secret
-        )
-        
-        return super(OAuth2Blueprint, self).__init__(name, **kwargs)

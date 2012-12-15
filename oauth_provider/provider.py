@@ -1,11 +1,11 @@
 import oauth_provider
-from flask import request, render_template, g
+from flask import request, render_template, g, url_for
 from flask.ext.oauthprovider import OAuthProvider
 from bson.objectid import ObjectId
 from models import ResourceOwner as User, Client, Nonce
 from models import RequestToken, AccessToken
 from utils import require_openid
-
+from auth import APIS
 
 class BitTrailsProvider(OAuthProvider):
 
@@ -15,7 +15,7 @@ class BitTrailsProvider(OAuthProvider):
 
     @property
     def realms(self):
-        return [u"secret", u"trolling"]
+        return [u"twitter"]
         
     @property
     def nonce_length(self):
@@ -35,16 +35,29 @@ class BitTrailsProvider(OAuthProvider):
         blueprint.add_url_rule(self.authorize_url, view_func=self.authorize,
                          methods=[u'GET', u'POST'])
 
-
     @require_openid
     def authorize(self):
-        if request.method == u"POST":
+        if request.method == u"POST" or 'done' in request.args:
             token = request.form.get("oauth_token")
+            
+            if not token:
+                token = request.args.get("oauth_token")
+                
             return self.authorized(token)
         else:
             # TODO: Authenticate client
-            token = request.args.get(u"oauth_token")
-            return render_template(u"authorize.html", token=token)
+            token_key = request.args.get(u"oauth_token")
+            token = RequestToken.find_one({'token': token_key})
+            realm = token['realm']
+            
+            if realm and realm in APIS:
+                url = ("%s?first_oauth_token=%s" % 
+                    (url_for('%s.finished' % realm, _external = True), token_key))
+                resp = APIS[realm].authorize(callback = url)
+                return resp
+            
+            return render_template(u"authorize.html", token=token_key,
+                realm = token['realm'].title())
 
     @require_openid
     def register(self):
@@ -113,6 +126,15 @@ class BitTrailsProvider(OAuthProvider):
         return (
             Client.find_one({'client_key':client_key}) != None)
         
+    def check_realm(self, realm):
+        """Check that the realm is one of a set allowed realms.
+        """
+        valid = True
+        
+        for r in realm.split(','):
+            valid = valid and r in self.realms
+        
+        return valid
 
     def validate_requested_realm(self, client_key, realm):
         return True

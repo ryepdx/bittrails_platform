@@ -16,7 +16,7 @@ def main():
         import oauth_provider.views
 
     app.secret_key = APP_SECRET_KEY
-    
+
     # Register all our routes and blueprints.
     register_auth_blueprints(app)
     app.register_blueprint(api.views.app, url_prefix = '/api')
@@ -26,6 +26,12 @@ def main():
     login_manager = LoginManager()
     login_manager.setup_app(app)
     register.signals.connect_signals(app)
+    
+    if DEBUG:
+        @app.route('/url_map')
+        def url_map():
+            return str(app.url_map)
+    
     
     # Run the app!
     app.run(host = '0.0.0.0', port = PORT, debug = DEBUG)

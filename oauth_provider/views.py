@@ -2,6 +2,8 @@ import app as core
 from flask import Blueprint, request, current_app
 from provider import BitTrailsProvider
 from models import AccessToken
+from auth.signals import services_registered
+
 app = Blueprint('oauth_provider', __name__, template_folder='templates')
 
 provider = BitTrailsProvider(current_app)
@@ -9,7 +11,6 @@ provider.init_blueprint(app)
 
 # Imported to setup views
 import login
-
 
 @app.route('/callback')
 def callback():
