@@ -37,7 +37,7 @@ def register_apis(apis):
     @app.route('/<service>/<path:endpoint>')
     def secondary_api(service, endpoint):
         if request.method == 'GET':
-            api_call = apis[service].get(endpoint)
+            api_call = apis[service].get(endpoint, data = request.args)
         elif request.method == 'POST':
             api_call = apis[service].post(endpoint, data = request.form)
         

@@ -10,7 +10,7 @@ LASTFM_SECRET = '72c62e1b9d0ac4bb7c3a56836f4cf885'
 
 DATABASE = 'bittrails_platform'
 PORT = 5000
-DEBUG = True
+DEBUG = False
 
 # Override any of the above settings if they are specified in settings_local.py
 from settings_local import *
