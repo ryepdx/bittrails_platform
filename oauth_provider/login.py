@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from views import app
-from models import ResourceOwner as User
+from models import User
 from flask import g, session, render_template, request, redirect, flash
 from flask import abort, url_for, current_app
 from flask.ext.openid import OpenID
@@ -8,13 +8,12 @@ from flask.ext.openid import OpenID
 # setup flask-openid
 oid = OpenID(current_app)
 
-
 @current_app.before_request
 def before_request():
     g.user = None
     if 'openid' in session:
         user_dict = User.find_one({'openid':session['openid']})
-        
+
         if user_dict:
             g.user = User()
             g.user.update(user_dict)
@@ -54,7 +53,7 @@ def create_or_login(resp):
     user = User.get_collection().find_one({'openid':resp.identity_url})
     if user is not None:
         flash(u'Successfully signed in')
-        g.user = user
+        g.user = User
         return redirect(oid.get_next_url())
     return redirect(url_for('.create_profile', next=oid.get_next_url(),
                             name=resp.fullname or resp.nickname,
@@ -77,7 +76,8 @@ def create_profile():
             flash(u'Error: you have to enter a valid email address')
         else:
             flash(u'Profile successfully created')
-            User.get_collection().insert(User(name, email, session['openid']))
+            User.get_collection().insert(
+                User(name, email, session['openid']))
             return redirect(oid.get_next_url())
     return render_template('create_profile.html', next_url=oid.get_next_url())
 

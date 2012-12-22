@@ -1,11 +1,13 @@
 import oauth_provider
-from flask import request, render_template, g, url_for
+from flask import request, render_template, g, url_for, redirect, session
 from flask.ext.oauthprovider import OAuthProvider
+from flask.ext.login import current_user
 from bson.objectid import ObjectId
-from models import ResourceOwner as User, Client, Nonce
+from models import User, UID, Client, Nonce
 from models import RequestToken, AccessToken
 from utils import require_openid
 from auth import APIS
+from oauthlib.common import generate_token, add_params_to_uri
 
 class BitTrailsProvider(OAuthProvider):
 
@@ -15,7 +17,8 @@ class BitTrailsProvider(OAuthProvider):
 
     @property
     def realms(self):
-        return [u"twitter"]
+        #return [u"twitter", u"foursquare"]
+        return APIS.keys()
         
     @property
     def nonce_length(self):
@@ -35,25 +38,31 @@ class BitTrailsProvider(OAuthProvider):
         blueprint.add_url_rule(self.authorize_url, view_func=self.authorize,
                          methods=[u'GET', u'POST'])
 
-    @require_openid
+    #@require_openid
     def authorize(self):
         if request.method == u"POST" or 'done' in request.args:
             token = request.form.get("oauth_token")
             
             if not token:
                 token = request.args.get("oauth_token")
-                
-            return self.authorized(token)
+            
+            return self.authorized(token, request = request)
         else:
             # TODO: Authenticate client
             token_key = request.args.get(u"oauth_token")
             token = RequestToken.find_one({'token': token_key})
             realm = token['realm']
             
+            # TODO: Make this more robust.
+            session['realm'] = realm
+            
             if realm and realm in APIS:
-                url = ("%s?first_oauth_token=%s" % 
-                    (url_for('%s.finished' % realm, _external = True), token_key))
+                #url = ("%s?first_oauth_token=%s" % 
+                #    (url_for('%s.finished' % realm, _external = True), token_key))
+                session['original_token'] = token_key
+                url = url_for('%s.finished' % realm, _external = True)
                 resp = APIS[realm].authorize(callback = url)
+                
                 return resp
             
             return render_template(u"authorize.html", token=token_key,
@@ -81,14 +90,14 @@ class BitTrailsProvider(OAuthProvider):
             }
             client = Client(**info)
             client['callbacks'].append(callback)
-            client['resource_owner_id'] = g.user['_id']
+            client['user_id'] = current_user.get_id()
             client_id = Client.insert(client)
-            g.user.client_ids.append(client_id)
-            User.get_collection().save(g.user)
+            current_user.client_ids.append(client_id)
+            User.get_collection().save(current_user)
             return render_template(u"client.html", **info)
         else:
             clients = Client.get_collection().find({'_id': {'$in': 
-                [ObjectId(oid) for oid in g.user.client_ids]}})
+                [ObjectId(oid) for oid in current_user.client_ids]}})
             return render_template(u"register.html", clients=clients)
             
     
@@ -270,7 +279,8 @@ class BitTrailsProvider(OAuthProvider):
         
         if client:
             token = RequestToken(
-                request_token, callback, secret=secret, realm=realm)
+                request_token, callback, secret=secret, realm=realm,
+                user_id = current_user.get_id())
             token.client_id = client['_id']
         
             RequestToken.insert(token)
@@ -279,16 +289,19 @@ class BitTrailsProvider(OAuthProvider):
             realm=None, secret=None):
         client = Client.find_one({'client_key':client_key})
         
+        token = AccessToken(access_token, secret=secret, realm=realm)
         if client:
-            token = AccessToken(access_token, secret=secret, realm=realm)
-            token.client_id = client['_id']
-            
             req_token = RequestToken.find_one({'token':request_token})
             
             if req_token:
-                token['resource_owner_id'] = req_token['resource_owner_id']
                 token['realm'] = req_token['realm']
-            
+                token['client_id'] = client['_id']
+                
+                if not req_token['user_id']:
+                    req_token['user_id'] = current_user.get_id()
+                    RequestToken.save(req_token)
+                
+                token['user_id'] = req_token['user_id']
                 AccessToken.insert(token)
 
     def save_timestamp_and_nonce(self, client_key, timestamp, nonce,
@@ -313,5 +326,35 @@ class BitTrailsProvider(OAuthProvider):
     def save_verifier(self, request_token, verifier):
         token = RequestToken.find_one({'token':request_token})
         token['verifier'] = verifier
-        token['resource_owner_id'] = g.user['_id']
+        token['user_id'] = current_user.get_id()
         RequestToken.get_collection().save(token)
+
+    def authorized(self, request_token, request = None):
+        """Create a verifier for an user authorized client"""
+        verifier = generate_token(length=self.verifier_length[1])
+        self.save_verifier(request_token, verifier)
+        
+        #if request:
+        #    response = dict(request.args.items())
+        #else:
+        response = {}
+            
+        # Alright, now for the fun part!
+        # We need to retrieve the user's unique ID for the service
+        # the app just authenticated with them through us.
+        service = session['realm']
+        uid = APIS[service].get_uid(service, request)
+        
+        if uid:
+            response.update({'uid': uid, 'service': service})
+            
+        # Are we logged in?
+        if current_user.is_authenticated():
+            response.update({'btid': current_user.get_id()})
+        
+        response.update(
+            {u'oauth_token': request_token,
+             u'oauth_verifier': verifier})
+        callback = self.get_callback(request_token)
+        
+        return redirect(add_params_to_uri(callback, response.items()))

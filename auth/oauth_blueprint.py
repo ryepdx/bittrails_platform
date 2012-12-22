@@ -1,8 +1,10 @@
 from flask_rauth import RauthOAuth1, RauthOAuth2
-from flask import redirect, url_for, request, Blueprint, render_template, session
+from flask import redirect, url_for, request, Blueprint, render_template, session, abort
 from blinker import Namespace
 from auth_settings import TOKENS_KEY
 from auth import signals
+import auth
+from oauthlib.common import add_params_to_uri
 
 def oauth_completed(sender, response, access_token):
     if TOKENS_KEY not in session:
@@ -74,33 +76,49 @@ class OAuthBlueprint(Blueprint):
             signals.oauth_completed.send(self, response = resp,
                 access_token = access_token)
             
-            token_key = request.args.get(u"first_oauth_token", None)
+            token_key = session.get(u"original_token", None)
             
             if token_key:
-                return redirect('%s?oauth_token=%s&done' % 
-                    (url_for('oauth_provider.authorize'), token_key))
+                session.pop(u"original_token", None)
+                qs = resp._cached_content
+                qs.update({u'oauth_token': token_key})
+                return redirect(
+                    add_params_to_uri(url_for('oauth_provider.authorize'), 
+                        qs.items()) + "&done")
                 
             return redirect(url_for(self.oauth_completed_view))
         return oauth_finished
 
-class OAuth(RauthOAuth1):
+class OAuthGetUID(object):
+    def set_get_uid(self, func = (lambda x: None)):
+        self.get_uid = func
+
+class OAuth(RauthOAuth1, OAuthGetUID):
     def request(self, method, uri, user = None, **kwargs):
         if user:
             return super(OAuth, self).request(method, uri,
-                oauth_token = user.access_keys[self.name], **kwargs)
+                oauth_token = user['external_tokens'][self.name], **kwargs)
         else:
             return super(OAuth, self).request(method, uri, **kwargs)
 
-class OAuth2(RauthOAuth2):
+class OAuth2(RauthOAuth2, OAuthGetUID):
     def request(self, method, uri, user = None, **kwargs):
         if user:
             return super(OAuth2, self).request(method, uri,
-                access_token = user.access_keys[self.name], **kwargs)
+                access_token = user['external_tokens'][self.name], **kwargs)
         else:
             return super(OAuth2, self).request(method, uri, **kwargs)
 
-class FoursquareOAuth(OAuth2):
-    def request(self, method, uri, user = None, data = {}, **kwargs):
-        uri = uri + '&oauth_token=%s' % user.access_keys[self.name]
-        return super(FoursquareOAuth, self).request(method, uri,
-            user = user, **kwargs)
+class FoursquareOAuth(OAuth2, OAuthGetUID):
+    def request(self, method, uri, user = None, **kwargs):
+        if user:
+            if '?' in uri:
+                uri = (uri + '&oauth_token=%s'
+                    % user['external_tokens'][self.name])
+            else:
+                uri = (uri + '?oauth_token=%s'
+                    % user['external_tokens'][self.name])
+            return super(FoursquareOAuth, self).request(method, uri,
+                user = user, **kwargs)
+        else:
+            return abort(400)

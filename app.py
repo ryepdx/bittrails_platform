@@ -4,7 +4,6 @@ from settings import PORT, DEBUG, APP_SECRET_KEY
 from auth import register_auth_blueprints
 
 import home.views
-import api.views
 import register.signals
 import auth.signals
 
@@ -14,6 +13,7 @@ def main():
     
     with app.app_context():
         import oauth_provider.views
+        import api.views
 
     app.secret_key = APP_SECRET_KEY
 
@@ -31,7 +31,6 @@ def main():
         @app.route('/url_map')
         def url_map():
             return str(app.url_map)
-    
     
     # Run the app!
     app.run(host = '0.0.0.0', port = PORT, debug = DEBUG)

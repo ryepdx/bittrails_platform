@@ -1,110 +1,114 @@
 import pymongo
+from db.models import Model, mongodb_init
 
-
-def get_connection():
-    return pymongo.MongoClient().oauth_provider
-
-
-class Model(dict):
-    @classmethod
-    def get_collection(cls):
-        conn = get_connection()
-        return conn[cls.table]
-        
-    @classmethod
-    def find_one(cls, attrs):
-        return cls.get_collection().find_one(attrs)
-    
-    @classmethod
-    def insert(cls, obj):
-        return cls.get_collection().insert(obj)
-        
-    @classmethod
-    def save(cls, obj):
-        return cls.get_collection().save(obj)
-
-    def __getattr__(self, attr):
-        return self[attr]
-        
-    def __setattr__(self, attr, value):
-        self[attr] = value
-    
-    
-
-class ResourceOwner(Model):
+class User(Model):
     table = "users"
 
-    def __init__(self, name="", email="", openid=""):
+    @mongodb_init
+    def __init__(self, name="", email="", openid="", confirmed=True,
+    external_tokens = [], client_ids = []):
         self.name = name
         self.email = email
         self.openid = openid
-        self.request_tokens = []
-        self.access_tokens = []
-        self.client_ids = []
+        self.external_tokens = external_tokens
+        self.client_ids = client_ids
+        self.confirmed = confirmed
+
+    def is_active(self):
+        return self.confirmed
+        
+    def is_authenticated(self):
+        return hasattr(self, '_id')
+        
+    def is_anonymous(self):
+        return not hasattr(self, '_id')
+        
+    def get_id(self):
+        return unicode(self._id)
 
     def __repr__(self):
-        return "<ResourceOwner (%s, %s)>" % (self.name, self.email)
+        return "<User (%s, %s)>" % (self.name, self.email)
 
 
 class Client(Model):
     table = "clients"
 
-    def __init__(self, client_key, name, description, secret=None, pubkey=None):
+    @mongodb_init
+    def __init__(self, client_key, name, description, secret=None, pubkey=None,
+    request_tokens = [], access_tokens = [], callbacks = [], user_id = ''):
         self.client_key = client_key
         self.name = name
         self.description = description
         self.secret = secret
         self.pubkey = pubkey
-        self.request_tokens = []
-        self.access_tokens = []
-        self.callbacks = []
-        self.resource_owner_id = ""
+        self.request_tokens = request_tokens
+        self.access_tokens = access_tokens
+        self.callbacks = callbacks
+        self.user_id = user_id
 
     def __repr__(self):
-        return "<Client (%s, %s)>" % (self.name, self.id)
+        return "<Client (%s, %s)>" % (self.name, self._id)
 
 
 class Nonce(Model):
     table = "nonces"
 
-    def __init__(self, nonce, timestamp):
+    @mongodb_init
+    def __init__(self, nonce, timestamp, client_id = '', request_token_id = '',
+    access_token_id = ''):
         self.nonce = nonce
         self.timestamp = timestamp
-        self.client_id = ""
-        self.request_token_id = ""
-        self.access_token_id = ""
+        self.client_id = client_id
+        self.request_token_id = request_token_id
+        self.access_token_id = access_token_id
 
     def __repr__(self):
-        return "<Nonce (%s, %s, %s, %s)>" % (self.nonce, self.timestamp, self.client, self.resource_owner)
+        return "<Nonce (%s, %s, %s, %s)>" % (self.nonce, self.timestamp, 
+            self.client_id, self.user_id)
 
 
 class RequestToken(Model):
     table = "requestTokens"
 
-    def __init__(self, token, callback, secret=None, verifier=None, realm=None):
+    @mongodb_init
+    def __init__(self, token, callback, secret=None, verifier=None,
+    realm=None, user_id = '', client_id = ''):
         self.token = token
         self.secret = secret
         self.verifier = verifier
         self.realm = realm
         self.callback = callback
-        self.client_id = ""
-        self.resource_owner_id = ""
+        self.client_id = client_id
+        self.user_id = user_id
         
-
     def __repr__(self):
-        return "<RequestToken (%s, %s, %s)>" % (self.token, self.client, self.resource_owner)
+        return "<RequestToken (%s, %s, %s)>" % (self.token, self.client_id, self.user_id)
 
 
 class AccessToken(Model):
     table = "accessTokens"
 
-    def __init__(self, token, secret=None, verifier=None, realm=None):
+    @mongodb_init
+    def __init__(self, token, secret=None, verifier=None, realm=None,
+    client_id = '', user_id = ''):
         self.token = token
         self.secret = secret
         self.verifier = verifier
         self.realm = realm
-        self.client_id = ""
-        self.resource_owner_id = ""
+        self.client_id = client_id
+        self.user_id = user_id
 
     def __repr__(self):
-        return "<AccessToken (%s, %s, %s)>" % (self.token, self.client, self.resource_owner)
+        return "<AccessToken (%s, %s, %s)>" % (self.token, self.client_id, self.user_id)
+
+
+class UID(Model):
+    table = "UIDs"
+    
+    @mongodb_init
+    def __init__(self, uid, user_id):
+        self.uid = uid
+        self.user_id = user_id
+    
+    def __repr__(self):
+        return "<UID (%s, %s)>" % (self.uid, self.user_id)
