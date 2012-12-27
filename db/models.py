@@ -15,31 +15,49 @@ def mongodb_init(f):
         
     return init
 
+def simple_init(f):
+    @wraps(f)
+    def init(self, *args, **kwargs):
+        for key in kwargs:
+            self.__setattr__(key, kwargs[key])
+        
+        f(self, *args, **kwargs)
+        
+    return init
+
 class Model(dict):
     def __init__(self, *args, **kwargs):
         super(Model, self).__init__(self, *args, **kwargs)
         self.convert_ids()
     
     @classmethod
-    def get_collection(cls):
+    def get_collection(cls, database = DATABASE):
         conn = get_connection(DATABASE)
         return conn[cls.table]
         
     @classmethod
-    def find_one(cls, attrs):
-        return cls.get_collection().find_one(attrs)
+    def find_one(cls, attrs, as_obj = False):
+        if as_obj:
+            result = cls.get_collection().find_one(attrs)
+            
+            if result:
+                return cls(**result)
+            else:
+                return result
+        else:
+            return cls.get_collection().find_one(attrs)
     
-    @classmethod
-    def insert(cls, obj):
-        if hasattr(obj, 'convert_ids'):
-            obj.convert_ids()
-        return cls.get_collection().insert(obj)
+    def insert(self):
+        if hasattr(self, 'convert_ids'):
+            self.convert_ids()
+        self._id = self.get_collection().insert(self)
+        return self._id
         
-    @classmethod
-    def save(cls, obj):
-        if hasattr(obj, 'convert_ids'):
-            obj.convert_ids()
-        return cls.get_collection().save(obj)
+    def save(self):
+        if hasattr(self, 'convert_ids'):
+            self.convert_ids()
+        self._id = self.get_collection().save(self)
+        return self._id
 
     def convert_ids(self):
         for key in filter(lambda x: x[-3:] == '_id', self.keys()):

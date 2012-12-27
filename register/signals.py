@@ -10,29 +10,29 @@ import auth
 def update_user(sender, response, access_token):
     # Has this account been connected before?
     uid = auth.APIS[session['realm']].get_uid(session['realm'], response)
-    uid_obj = UID.find_one({'uid':'%s:%s' % (session['realm'], uid)})
+    uid_obj = UID.find_one({'uid':'%s:%s' % (session['realm'], uid)}, as_obj = True)
     
     if not uid_obj:
         if not current_user.is_authenticated():
             user = User()
-            user['_id'] = User.insert(user)
+            user.insert()
         else:
             user = current_user
                 
         uid_obj = UID('%s:%s' % (session['realm'], uid), user['_id'])
-        uid_obj['_id'] = UID.insert(uid_obj)
+        uid_obj.insert()
     else:
-        user = User(**User.find_one({'_id':uid_obj['user_id']}))
+        user = User.find_one({'_id':uid_obj['user_id']}, as_obj = True)
     
     user['external_tokens'][session['realm']] = access_token
-    User.save(user)
+    user.save()
     
     # Checking current_user since user is indeed an authenticated user.
     if not current_user.is_authenticated():
         login_user(user)
 
 def load_user(user_id):
-    return User(**(User.find_one(ObjectId(user_id))))
+    return User.find_one(ObjectId(user_id), as_obj = True)
 
 def connect_signals(app):
     signals = Namespace()

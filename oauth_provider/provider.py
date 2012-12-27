@@ -17,7 +17,6 @@ class BitTrailsProvider(OAuthProvider):
 
     @property
     def realms(self):
-        #return [u"twitter", u"foursquare"]
         return APIS.keys()
         
     @property
@@ -91,13 +90,14 @@ class BitTrailsProvider(OAuthProvider):
             client = Client(**info)
             client['callbacks'].append(callback)
             client['user_id'] = current_user.get_id()
-            client_id = Client.insert(client)
+            client_id = client.insert()
             current_user.client_ids.append(client_id)
             User.get_collection().save(current_user)
             return render_template(u"client.html", **info)
         else:
             clients = Client.get_collection().find({'_id': {'$in': 
                 [ObjectId(oid) for oid in current_user.client_ids]}})
+            import pdb; pdb.set_trace()
             return render_template(u"register.html", clients=clients)
             
     
@@ -283,7 +283,7 @@ class BitTrailsProvider(OAuthProvider):
                 user_id = current_user.get_id())
             token.client_id = client['_id']
         
-            RequestToken.insert(token)
+            token.insert()
 
     def save_access_token(self, client_key, access_token, request_token,
             realm=None, secret=None):
@@ -291,7 +291,7 @@ class BitTrailsProvider(OAuthProvider):
         
         token = AccessToken(access_token, secret=secret, realm=realm)
         if client:
-            req_token = RequestToken.find_one({'token':request_token})
+            req_token = RequestToken.find_one({'token':request_token}, as_obj = True)
             
             if req_token:
                 token['realm'] = req_token['realm']
@@ -299,10 +299,10 @@ class BitTrailsProvider(OAuthProvider):
                 
                 if not req_token['user_id']:
                     req_token['user_id'] = current_user.get_id()
-                    RequestToken.save(req_token)
+                    req_token.save()
                 
                 token['user_id'] = req_token['user_id']
-                AccessToken.insert(token)
+                token.insert()
 
     def save_timestamp_and_nonce(self, client_key, timestamp, nonce,
             request_token=None, access_token=None):
@@ -321,7 +321,7 @@ class BitTrailsProvider(OAuthProvider):
                 token = AccessToken.find_one({'token':access_token})
                 nonce.access_token_id = token['_id']
 
-            Nonce.insert(nonce)
+            nonce.insert()
 
     def save_verifier(self, request_token, verifier):
         token = RequestToken.find_one({'token':request_token})

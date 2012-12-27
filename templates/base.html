@@ -15,8 +15,8 @@
           {% if request.path == url_for('.index') %} <li class="active"> {% else %} <li> {% endif %}
           <a href="{{ url_for('.index') }}">Overview</a> </li>
           {% if g.user %}
-          {% if request.path == url_for('.edit_profile') %} <li class="active"> {% else %} <li> {% endif %}
-          <a href="{{ url_for('.edit_profile') }}">Profile</a> </li>
+          {% if request.path == url_for('.edit_account') %} <li class="active"> {% else %} <li> {% endif %}
+              <a href="{{ url_for('.edit_account') }}">Account</a> </li>
           {% if request.path == url_for('.register') %} <li class="active"> {% else %} <li> {% endif %}
           <a href="{{ url_for('.register') }}">Clients</a></li>
           {% endif %}
