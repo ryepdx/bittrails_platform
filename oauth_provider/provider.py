@@ -97,7 +97,7 @@ class BitTrailsProvider(OAuthProvider):
         else:
             clients = Client.get_collection().find({'_id': {'$in': 
                 [ObjectId(oid) for oid in current_user.client_ids]}})
-            import pdb; pdb.set_trace()
+            
             return render_template(u"register.html", clients=clients)
             
     
@@ -278,31 +278,35 @@ class BitTrailsProvider(OAuthProvider):
         client = Client.find_one({'client_key':client_key})
         
         if client:
-            token = RequestToken(
-                request_token, callback, secret=secret, realm=realm,
-                user_id = current_user.get_id())
-            token.client_id = client['_id']
-        
-            token.insert()
+            token = RequestToken.find_or_create(realm = realm,
+                user_id = current_user.get_id(), client_id = client['_id'])
+            token.token = request_token
+            token.callback = callback
+            token.secret = secret        
+            token.save()
 
     def save_access_token(self, client_key, access_token, request_token,
             realm=None, secret=None):
         client = Client.find_one({'client_key':client_key})
         
-        token = AccessToken(access_token, secret=secret, realm=realm)
         if client:
-            req_token = RequestToken.find_one({'token':request_token}, as_obj = True)
+            req_token = RequestToken.find_one(
+                {'token':request_token}, as_obj = True)
             
             if req_token:
-                token['realm'] = req_token['realm']
-                token['client_id'] = client['_id']
                 
                 if not req_token['user_id']:
                     req_token['user_id'] = current_user.get_id()
                     req_token.save()
+                    
+                token = AccessToken.find_or_create(
+                    client_id = client['_id'], 
+                    user_id = req_token['user_id'],#current_user.get_id(),
+                    realm = realm if realm else req_token['realm'])
                 
-                token['user_id'] = req_token['user_id']
-                token.insert()
+                token.secret = secret
+                token.token = access_token
+                token.save()
 
     def save_timestamp_and_nonce(self, client_key, timestamp, nonce,
             request_token=None, access_token=None):
@@ -343,7 +347,7 @@ class BitTrailsProvider(OAuthProvider):
         # We need to retrieve the user's unique ID for the service
         # the app just authenticated with them through us.
         service = session['realm']
-        uid = APIS[service].get_uid(service, request)
+        uid = APIS[service].get_uid(request)
         
         if uid:
             response.update({'uid': uid, 'service': service})

@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, abort
 from datetime import datetime
 import auth.signals
 from flask.ext.login import current_user

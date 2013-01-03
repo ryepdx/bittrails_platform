@@ -1,5 +1,6 @@
 from flask_rauth import RauthOAuth1, RauthOAuth2
 from flask import redirect, url_for, request, Blueprint, render_template, session, abort
+from flask.ext.login import current_user
 from blinker import Namespace
 from auth_settings import TOKENS_KEY
 from auth import signals
@@ -90,8 +91,9 @@ class OAuthBlueprint(Blueprint):
         return oauth_finished
 
 class OAuthGetUID(object):
-    def set_get_uid(self, func = (lambda x: None)):
-        self.get_uid = func
+    def get_uid(self, request):
+        raise NotImplemented("Child class must implement this method!")
+
 
 class OAuth(RauthOAuth1, OAuthGetUID):
     def request(self, method, uri, user = None, **kwargs):
@@ -109,7 +111,7 @@ class OAuth2(RauthOAuth2, OAuthGetUID):
         else:
             return super(OAuth2, self).request(method, uri, **kwargs)
 
-class FoursquareOAuth(OAuth2, OAuthGetUID):
+class FoursquareOAuth(OAuth2):
     def request(self, method, uri, user = None, **kwargs):
         if user:
             if '?' in uri:
@@ -122,3 +124,24 @@ class FoursquareOAuth(OAuth2, OAuthGetUID):
                 user = user, **kwargs)
         else:
             return abort(400)
+            
+    def get_uid(self, response, oauth_token = None):
+        if not oauth_token:
+            resp = self.get('users/self', user = current_user)
+        else:
+            resp = self.get('users/self', oauth_token = oauth_token)
+        
+        if resp.status == 200:
+            return resp.content['response']['user']['id']
+        else:
+            return None
+            
+class TwitterOAuth(OAuth):
+    def get_uid(self, response, oauth_token = None):
+        if hasattr(response, 'args'):
+            return response.args.get('screen_name')
+        elif hasattr(response, 'content'):
+            return response.content.get('screen_name')
+        else:
+            return None
+    

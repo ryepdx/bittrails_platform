@@ -1,6 +1,7 @@
 from flask.ext.login import current_user
 from blinker import Namespace
-from oauth_blueprint import (OAuthBlueprint, FoursquareOAuth, OAuth, OAuth2)
+from oauth_blueprint import (
+    OAuthBlueprint, FoursquareOAuth, TwitterOAuth, OAuth)
 from settings import (TWITTER_KEY, TWITTER_SECRET, 
                       FOURSQUARE_CLIENT_ID, FOURSQUARE_CLIENT_SECRET, 
                       FITBIT_KEY, FITBIT_SECRET,
@@ -8,7 +9,7 @@ from settings import (TWITTER_KEY, TWITTER_SECRET,
                       
 from auth import signals
 
-APIS = {'twitter': OAuth(
+APIS = {'twitter': TwitterOAuth(
             name = 'twitter',
             base_url = 'https://api.twitter.com/1/',
             request_token_url = 'https://api.twitter.com/oauth/request_token',
@@ -71,24 +72,7 @@ BLUEPRINTS = {
         #)
     }
     
-def get_twitter_uid(self, request):
-    if hasattr(request, 'args'):
-        return request.args.get('screen_name')
-    elif hasattr(request, 'content'):
-        return request.content.get('screen_name')
-    else:
-        return None
     
-def get_foursquare_uid(self, request):
-    resp = APIS['foursquare'].get('users/self', user = current_user)
-    if resp.status == 200:
-        return resp.content['response']['user']['id']
-    else:
-        return None
-
-APIS['twitter'].set_get_uid(get_twitter_uid)
-APIS['foursquare'].set_get_uid(get_foursquare_uid)
-
 def register_auth_blueprints(app):
     oauth_services = {}
     

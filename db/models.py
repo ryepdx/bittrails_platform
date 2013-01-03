@@ -15,16 +15,6 @@ def mongodb_init(f):
         
     return init
 
-def simple_init(f):
-    @wraps(f)
-    def init(self, *args, **kwargs):
-        for key in kwargs:
-            self.__setattr__(key, kwargs[key])
-        
-        f(self, *args, **kwargs)
-        
-    return init
-
 class Model(dict):
     def __init__(self, *args, **kwargs):
         super(Model, self).__init__(self, *args, **kwargs)
@@ -32,7 +22,7 @@ class Model(dict):
     
     @classmethod
     def get_collection(cls, database = DATABASE):
-        conn = get_connection(DATABASE)
+        conn = get_connection(database)
         return conn[cls.table]
         
     @classmethod
@@ -46,6 +36,15 @@ class Model(dict):
                 return result
         else:
             return cls.get_collection().find_one(attrs)
+            
+    @classmethod
+    def find_or_create(cls, **kwargs):
+        result = cls.find_one(kwargs, as_obj = True)
+        
+        if result:
+            return result
+        else:
+            return cls(**kwargs)
     
     def insert(self):
         if hasattr(self, 'convert_ids'):
@@ -60,7 +59,13 @@ class Model(dict):
         return self._id
 
     def convert_ids(self):
-        for key in filter(lambda x: x[-3:] == '_id', self.keys()):
+        if hasattr(self, 'do_not_convert'):
+            skip_keys = self.do_not_convert
+        else:
+            skip_keys = []
+            
+        for key in filter(
+        lambda x: x[-3:] == '_id' and x not in skip_keys, self.keys()):
             if not isinstance(self[key], ObjectId) and self[key]:
                 self[key] = ObjectId(self[key])
 

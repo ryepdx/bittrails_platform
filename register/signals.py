@@ -9,8 +9,9 @@ import auth
 
 def update_user(sender, response, access_token):
     # Has this account been connected before?
-    uid = auth.APIS[session['realm']].get_uid(session['realm'], response)
-    uid_obj = UID.find_one({'uid':'%s:%s' % (session['realm'], uid)}, as_obj = True)
+    uid = auth.APIS[session['realm']].get_uid(response, oauth_token = access_token)
+    uid_obj = UID.find_one(
+        {'uid': uid, 'datastream': session['realm']}, as_obj = True)
     
     if not uid_obj:
         if not current_user.is_authenticated():
@@ -18,18 +19,25 @@ def update_user(sender, response, access_token):
             user.insert()
         else:
             user = current_user
-                
-        uid_obj = UID('%s:%s' % (session['realm'], uid), user['_id'])
+            
+        uid_obj = UID(uid = uid,
+                      datastream = session['realm'],
+                      user_id = user['_id'])
         uid_obj.insert()
+    
     else:
         user = User.find_one({'_id':uid_obj['user_id']}, as_obj = True)
-    
+        
+    if not 'external_tokens' in user or not isinstance(user['external_tokens'], dict):
+        user['external_tokens'] = {}
+        
     user['external_tokens'][session['realm']] = access_token
-    user.save()
     
-    # Checking current_user since user is indeed an authenticated user.
     if not current_user.is_authenticated():
         login_user(user)
+    
+    user.save()
+    
 
 def load_user(user_id):
     return User.find_one(ObjectId(user_id), as_obj = True)

@@ -38,7 +38,7 @@ def home(apis):
                 % (current_user.twitter_handle, 6))).content
     else:
         tweets = None
-        
+       
     if 'foursquare' in connected:
         checkins = apis['foursquare'].get(
             'users/self/checkins?limit=2', user = current_user).content
