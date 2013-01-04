@@ -29,6 +29,7 @@ class TestPosts(object):
 class TestTwitterPosts(TestPosts, unittest.TestCase):
     def setUp(self):
         self.user = User(
+            _id = ObjectId('50e3da15ab0ddcff7dd3c187'),
             external_tokens = { 
                 "twitter" : [ 
                     "14847576-NtVpk6iONznNMC7AQmYuI138nf9bualJZG0Jpd5Q0", 
@@ -69,7 +70,7 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'interval_start': datetime.datetime(2012, 11, 10, 0, 0),
                 'datastream': 'twitter',
                 'interval': 'day',
-                'user_id': ObjectId('50e3da15ab0ddcff7dd3c187'),
+                'user_id': self.user._id,
                 'posts_count': 15
             })
 
@@ -79,7 +80,7 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'interval_start': datetime.datetime(2012, 10, 29, 0, 0),
                 'datastream': 'twitter',
                 'interval': 'week',
-                'user_id': ObjectId('50e3da15ab0ddcff7dd3c187'),
+                'user_id': self.user._id,
                 'posts_count': 42
             })
             
@@ -89,7 +90,7 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'interval_start': datetime.datetime(2009, 3, 1, 0, 0),
                 'datastream': 'twitter',
                 'interval': 'month',
-                'user_id': ObjectId('50e3da15ab0ddcff7dd3c187'),
+                'user_id': self.user._id,
                 'posts_count': 9
             })
             

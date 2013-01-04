@@ -1,16 +1,15 @@
+import auth.signals
+import json
+import decorators
+
 from flask import Blueprint, request, abort
 from datetime import datetime
-import auth.signals
 from flask.ext.login import current_user
 from auth import APIS
 from oauth_provider.models import User, AccessToken
 from oauth_provider.views import PROVIDER
 from oauthlib.common import add_params_to_uri
-
-OAUTH_PARAMS = [
-    'oauth_version', 'oauth_token', 'oauth_nonce', 'oauth_timestamp',
-    'oauth_signature', 'oauth_consumer_key', 'oauth_signature_method'
-]
+from views_funcs import get_posts_count_func, passthrough
 
 app = Blueprint('api', __name__)
 
@@ -40,48 +39,20 @@ def correlate():
     while max_date > min_date:
         max_date = max_date - timedelta(hours=1)
         counts_blank[max_date.strftime(date_format)] = 0 
+
+@app.route('/bittrails/count/<service>/posts/<path:param_path>')
+def get_posts_count(service, param_path):
+    return decorators.provide_oauth_user(
+            PROVIDER.require_oauth(realm = service)(get_posts_count_func)
+        )(service, param_path)
         
 
 def register_apis(apis):
     
     @app.route('/<service>/<path:endpoint>')
     def secondary_api(service, endpoint):
-        def passthrough(service, endpoint):
-            if request.method ==  "GET":
-                token_key = request.args.get('oauth_token')
-            elif request.method == "POST":
-                token_key = request.form.get('oauth_token')
-                
-            token = AccessToken.find_one({'token': token_key})
-            
-            if token:
-                token = AccessToken(**token)
-                user = User.find_one({'_id': token['user_id']})
-                                
-                if request.args:
-                    params = filter(
-                        lambda param: param[0] not in OAUTH_PARAMS,
-                        request.args.items())
-                    endpoint = add_params_to_uri(endpoint, params)
-                        
-                if request.method == 'GET':
-                    api_call = APIS[service].get(endpoint, user = user)
-                elif request.method == 'POST':
-                    api_call = APIS[service].post(
-                        endpoint,
-                        user = user,
-                        data = filter(
-                            lambda param: param[0] not in OAUTH_PARAMS,
-                            request.form.items()
-                        )
-                    )
-                else:
-                    abort(400)
-            else:
-                abort(400)
-            
-            return api_call.response.content
-        return PROVIDER.require_oauth(
-            realm = service)(passthrough)(service, endpoint)
+        return decorators.provide_oauth_user(
+                PROVIDER.require_oauth(realm = service)(passthrough)
+            )(apis, service, endpoint)
         
 auth.signals.services_registered.connect(register_apis)
