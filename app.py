@@ -1,11 +1,9 @@
-from flask import Flask, session, redirect
+from flask import Flask
 from flask.ext.login import LoginManager
 from settings import PORT, DEBUG, APP_SECRET_KEY
 from auth import register_auth_blueprints
 
-import home.views
 import register.signals
-import auth.signals
 
 def main():
     

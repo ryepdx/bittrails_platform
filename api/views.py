@@ -8,7 +8,6 @@ from flask.ext.login import current_user
 from auth import APIS
 from oauth_provider.models import User, AccessToken
 from oauth_provider.views import PROVIDER
-from oauthlib.common import add_params_to_uri
 from views_funcs import get_posts_count_func, passthrough
 
 app = Blueprint('api', __name__)

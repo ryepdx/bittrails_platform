@@ -5,7 +5,8 @@ from oauth_blueprint import (
 from settings import (TWITTER_KEY, TWITTER_SECRET, 
                       FOURSQUARE_CLIENT_ID, FOURSQUARE_CLIENT_SECRET, 
                       FITBIT_KEY, FITBIT_SECRET,
-                      LASTFM_KEY, LASTFM_SECRET)
+                      LASTFM_KEY, LASTFM_SECRET,
+                      ASTRID_KEY, ASTRID_SECRET)
                       
 from auth import signals
 

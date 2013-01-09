@@ -5,6 +5,7 @@ import time
 from flask import abort, request
 from async_tasks.models import PostsCount
 from oauth_provider.models import User, AccessToken, UID
+from oauthlib.common import add_params_to_uri
 
 OAUTH_PARAMS = [
     'oauth_version', 'oauth_token', 'oauth_nonce', 'oauth_timestamp',
