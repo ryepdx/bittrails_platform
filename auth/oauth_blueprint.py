@@ -145,3 +145,17 @@ class TwitterOAuth(OAuth):
         else:
             return None
     
+class LastFmAuth(OAuth2):
+    def request(self, method, uri, user = None, **kwargs):
+        raise Exception('TBD')
+            
+    def get_uid(self, response, oauth_token = None):
+        if not oauth_token:
+            resp = self.get('user.getinfo&format=json', user = current_user)
+        else:
+            resp = self.get('user.getinfo&format=json', oauth_token = oauth_token)
+
+        if resp.status == 200:
+            return resp.content['user']['id']
+        else:
+            return None

@@ -1,12 +1,11 @@
 from flask.ext.login import current_user
 from blinker import Namespace
 from oauth_blueprint import (
-    OAuthBlueprint, FoursquareOAuth, TwitterOAuth, OAuth)
+    OAuthBlueprint, FoursquareOAuth, TwitterOAuth, OAuth, LastFmAuth)
 from settings import (TWITTER_KEY, TWITTER_SECRET, 
                       FOURSQUARE_CLIENT_ID, FOURSQUARE_CLIENT_SECRET, 
                       FITBIT_KEY, FITBIT_SECRET,
-                      LASTFM_KEY, LASTFM_SECRET,
-                      ASTRID_KEY, ASTRID_SECRET)
+                      LASTFM_KEY, LASTFM_SECRET)
                       
 from auth import signals
 
@@ -34,7 +33,15 @@ APIS = {'twitter': TwitterOAuth(
             access_token_url = 'http://api.fitbit.com/oauth/access_token',
             authorize_url = 'http://api.fitbit.com/oauth/authorize',
             consumer_key = FITBIT_KEY, 
-            consumer_secret = FITBIT_SECRET)
+            consumer_secret = FITBIT_SECRET),
+        'lastfm': LastFmAuth(
+            name = 'lastfm',
+            base_url = 'http://ws.audioscrobbler.com/2.0/',
+            access_token_url = 'http://ws.audioscrobbler.com/2.0/?method=auth.getSession',
+            authorize_url = 'http://www.last.fm/api/auth/',
+            consumer_key = LASTFM_KEY,
+            consumer_secret = LASTFM_SECRET
+        )
     }
 
 BLUEPRINTS = {
