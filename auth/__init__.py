@@ -1,7 +1,8 @@
 from flask.ext.login import current_user
 from blinker import Namespace
 from oauth_blueprint import (
-    OAuthBlueprint, FoursquareOAuth, TwitterOAuth, OAuth, LastFmAuth)
+    OAuthBlueprint, FoursquareOAuth, TwitterOAuth, OAuth,
+    LastFmAuth, LastFmAuthBlueprint)
 from settings import (TWITTER_KEY, TWITTER_SECRET, 
                       FOURSQUARE_CLIENT_ID, FOURSQUARE_CLIENT_SECRET, 
                       FITBIT_KEY, FITBIT_SECRET,
@@ -37,7 +38,7 @@ APIS = {'twitter': TwitterOAuth(
         'lastfm': LastFmAuth(
             name = 'lastfm',
             base_url = 'http://ws.audioscrobbler.com/2.0/',
-            access_token_url = 'http://ws.audioscrobbler.com/2.0/?method=auth.getSession',
+            access_token_url = 'http://ws.audioscrobbler.com/2.0/?method=auth.getSession&format=json',
             authorize_url = 'http://www.last.fm/api/auth/',
             consumer_key = LASTFM_KEY,
             consumer_secret = LASTFM_SECRET
@@ -68,16 +69,13 @@ BLUEPRINTS = {
             oauth_refused_view = 'home.index',
             oauth_completed_view = 'home.index'
         ),
-        #LastfmBlueprint(
-        #    name = 'last.fm',
-        #    base_url = 'http://www.last.fm/api/',
-        #    access_token_url = 'https://foursquare.com/oauth2/access_token',
-        #    authorize_url = 'https://last.fm/api/auth/?api_key=%s' % LASTFM_KEY,
-        #    consumer_key = LASTFM_KEY, 
-        #    consumer_secret = LASTFM_SECRET,
-        #    oauth_refused_view = 'home.index',
-        #    oauth_completed_view = 'home.index'
-        #)
+    'lastfm':
+        LastFmAuthBlueprint(
+            name = 'lastfm',
+            api = APIS['lastfm'],
+            oauth_refused_view = 'home.index',
+            oauth_completed_view = 'home.index'
+        )
     }
     
     

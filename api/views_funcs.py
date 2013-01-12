@@ -2,6 +2,7 @@ import pymongo
 import json
 import datetime
 import time
+import collections
 from flask import abort, request
 from async_tasks.models import PostsCount
 from oauth_provider.models import User, AccessToken, UID
@@ -16,6 +17,29 @@ DATE_FORMATS = {
     'timestamps': (lambda x: int(time.mktime(x.timetuple())))
 }
 
+def increment_time(datetime_obj, interval_name):
+    
+    if interval_name == 'day':
+        datetime_obj = datetime_obj + datetime.timedelta(days=1)
+    
+    elif interval_name == 'week':
+        datetime_obj = datetime_obj + datetime.timedelta(days=7)
+    
+    elif interval_name == 'month':
+        month = datetime_obj.month + 1
+        year = datetime_obj.year
+        
+        if month > 12:
+            month = month % 12
+            year = year + 1
+        datetime_obj = datetime.datetime(year, month, datetime_obj.day)
+            
+    elif interval_name == 'year':
+        datetime_obj = datetime.datetime(
+            datetime_obj.year + 1, datetime_obj.month, datetime_obj.day)
+            
+    return datetime_obj
+
 def get_posts_count_func(user, service, param_path):        
     param_list = param_path.split('/')
     params = dict(
@@ -23,7 +47,9 @@ def get_posts_count_func(user, service, param_path):
          for i in range(0, len(param_list)/2)])
     
     now = datetime.datetime.utcnow()
+    now = datetime.datetime(now.year, now.month, now.day)
     interval = params.get('by', 'week')
+    
     begin = params.get('from', (now - datetime.timedelta(days=30)))
     end = params.get('to', now)
     date_format = DATE_FORMATS.get(
@@ -33,14 +59,21 @@ def get_posts_count_func(user, service, param_path):
             'interval': interval, 'interval_start': {'$gte': begin, '$lte': end},
             'datastream': service, 'user_id': user['_id']
         }).sort('interval_start', direction = pymongo.ASCENDING)
-    
-    # Modify so that it returns entries for the last 10 intervals,
-    # rather than the last 10 entries.
-    
-    return json.dumps(dict((
+    result_counts = dict((
         (date_format(result['interval_start']), result['posts_count'])
         for result in results
-    )))
+    ))
+    
+    # Modify so that it returns entries for the last few intervals,
+    # rather than the last few entries.
+    counts = collections.OrderedDict()
+
+    while begin < end:
+        key = date_format(begin)
+        counts[key] = result_counts.get(key, 0)
+        begin = increment_time(begin, interval)    
+
+    return json.dumps(counts)
 
 def passthrough(user, apis, service, endpoint):
     if request.args:

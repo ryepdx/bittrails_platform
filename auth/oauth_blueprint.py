@@ -1,10 +1,15 @@
+import auth
+import hashlib
+import requests
+import json
+
 from flask_rauth import RauthOAuth1, RauthOAuth2
 from flask import redirect, url_for, request, Blueprint, render_template, session, abort
 from flask.ext.login import current_user
+from flask.ext.rauth import ACCESS_DENIED
 from blinker import Namespace
 from auth_settings import TOKENS_KEY
 from auth import signals
-import auth
 from oauthlib.common import add_params_to_uri
 
 def oauth_completed(sender, response, access_token):
@@ -71,7 +76,7 @@ class OAuthBlueprint(Blueprint):
         """
         @self.api.authorized_handler
         def oauth_finished(resp, access_token):
-            if resp is None or resp == 'access_denied':
+            if resp is None or resp == ACCESS_DENIED:
                 return redirect(self.oauth_refused_url)
             
             signals.oauth_completed.send(self, response = resp,
@@ -86,6 +91,36 @@ class OAuthBlueprint(Blueprint):
                 return redirect(
                     add_params_to_uri(url_for('oauth_provider.authorize'), 
                         qs.items()) + "&done")
+                
+            return redirect(url_for(self.oauth_completed_view))
+        return oauth_finished
+
+class LastFmAuthBlueprint(OAuthBlueprint):
+    
+    def generate_oauth_finished(self):
+        """
+        Creates the endpoint that handles a successful OAuth completion.
+        """
+        def oauth_finished():
+            if 'token' not in request.args:
+                return redirect(self.oauth_refused_url)
+                
+            token = request.args['token']
+            resp = json.loads(
+                self.api.get('%s&token=%s' % (self.api.access_token_url, token)).content
+            )
+            
+            signals.oauth_completed.send(self, response = resp,
+                access_token = resp['session']['key'])
+            
+            token_key = session.pop(u"original_token", None)
+            
+            if token_key:
+                del resp['session']['key']
+                resp.update({u'oauth_token': token_key})
+                return redirect(
+                    add_params_to_uri(url_for('oauth_provider.authorize'), 
+                        resp.items()) + "&done")
                 
             return redirect(url_for(self.oauth_completed_view))
         return oauth_finished
@@ -145,17 +180,80 @@ class TwitterOAuth(OAuth):
         else:
             return None
     
-class LastFmAuth(OAuth2):
+class LastFmAuth(requests.Session, OAuthGetUID):
+    def __init__(self, app = None, name = None, base_url = None,
+    access_token_url = None, authorize_url = None, consumer_key = None,
+    consumer_secret = None):
+        self.app = app
+        self.name = name
+        self.base_url = base_url
+        self.access_token_url = access_token_url
+        self.authorize_url = authorize_url
+        self.consumer_key = consumer_key
+        self.consumer_secret = consumer_secret
+        super(LastFmAuth, self).__init__(headers=None, cookies=None, auth=None,
+            timeout=None, proxies=None, hooks=None, params=None, config=None,
+            prefetch=True, verify=True, cert=None)
+        
+    def call_with_post(self, method, **kwargs):
+        return self.call(method, http_method = "POST", **kwargs)
+            
+    def call(self, method, user = None, http_method = "GET", **kwargs):
+        if http_method == "GET":
+            return self.get('%s?method=%s%s' 
+                % (self.base_url, method, ''.join(
+                    ['&%s=%s' % (key, kwargs[key]) for key in kwargs.keys()])),
+                user = user)
+        elif http_method == "POST":
+            kwargs['method'] = method
+            return self.post('', user = user, data = kwargs)
+    
     def request(self, method, uri, user = None, **kwargs):
-        raise Exception('TBD')
+        if 'data' in kwargs:
+            kwargs['data'] = self.get_signed_params(kwargs['data'], user)
+            
+        if '?' in uri:
+            (uri, params) = uri.split('?')
+            uri = add_params_to_uri(uri,
+                self.get_signed_params(dict(
+                    [param.split('=') for param in params.split('&')]
+                ), user).items())
+             
+        return super(LastFmAuth, self).request(method, uri,
+            data = kwargs.get('data'), **kwargs)
+            
+    def get_signed_params(self, params, user):
+        sig_string = ''
+        params['api_key'] = self.consumer_key
+        
+        if user and user.is_authenticated() and self.name in user['external_tokens']:
+            params['sk'] = user['external_tokens'][self.name]
+            
+        for key in sorted(params.keys()):
+            if key not in ('format', 'callback'):
+                sig_string = '%s%s%s' % (sig_string, key, params[key])
+            
+        sig_string = sig_string + self.consumer_secret
+        params['api_sig'] = hashlib.md5(sig_string).hexdigest()
+        
+        return params
+            
+    def authorize(self, callback):
+        url = '%s?api_key=%s' % (self.authorize_url, self.consumer_key)
+        
+        if callback:
+            url = '%s&cb=%s' % (url, callback)
+        
+        return redirect(url)
+    
             
     def get_uid(self, response, oauth_token = None):
         if not oauth_token:
-            resp = self.get('user.getinfo&format=json', user = current_user)
+            resp = self.call('user.getInfo', format='json', user = current_user)
         else:
-            resp = self.get('user.getinfo&format=json', oauth_token = oauth_token)
+            resp = self.call('user.getInfo', format='json', sk = oauth_token)
 
-        if resp.status == 200:
-            return resp.content['user']['id']
+        if resp.status_code == 200:
+            return json.loads(resp.content)['user']['id']
         else:
             return None
