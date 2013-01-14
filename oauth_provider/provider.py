@@ -60,7 +60,8 @@ class BitTrailsProvider(OAuthProvider):
                 #    (url_for('%s.finished' % realm, _external = True), token_key))
                 session['original_token'] = token_key
                 url = url_for('%s.finished' % realm, _external = True)
-                resp = APIS[realm].authorize(callback = url)
+                resp = APIS[realm].authorize(
+                    callback = url, **APIS[realm].auth_params)
                 
                 return resp
             

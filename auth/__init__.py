@@ -1,12 +1,13 @@
 from flask.ext.login import current_user
 from blinker import Namespace
 from oauth_blueprint import (
-    OAuthBlueprint, FoursquareOAuth, TwitterOAuth, OAuth,
-    LastFmAuth, LastFmAuthBlueprint)
+    OAuthBlueprint, FoursquareOAuth, TwitterOAuth, OAuth, OAuth2,
+    LastFmAuth, LastFmAuthBlueprint, GoogleOAuth)
 from settings import (TWITTER_KEY, TWITTER_SECRET, 
                       FOURSQUARE_CLIENT_ID, FOURSQUARE_CLIENT_SECRET, 
                       FITBIT_KEY, FITBIT_SECRET,
-                      LASTFM_KEY, LASTFM_SECRET)
+                      LASTFM_KEY, LASTFM_SECRET,
+                      GOOGLE_KEY, GOOGLE_SECRET)
                       
 from auth import signals
 
@@ -42,6 +43,19 @@ APIS = {'twitter': TwitterOAuth(
             authorize_url = 'http://www.last.fm/api/auth/',
             consumer_key = LASTFM_KEY,
             consumer_secret = LASTFM_SECRET
+        ),
+        'google_tasks': GoogleOAuth(
+            name = 'google_tasks',
+            base_url = 'https://www.googleapis.com',
+            access_token_url = 'https://accounts.google.com/o/oauth2/token',
+            authorize_url = 'https://accounts.google.com/o/oauth2/auth',
+            consumer_key = GOOGLE_KEY, 
+            consumer_secret = GOOGLE_SECRET,
+            auth_params = {
+                'access_type': 'offline',
+                'response_type': 'code',
+                'scope': 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/tasks.readonly'
+            }
         )
     }
 
@@ -73,6 +87,13 @@ BLUEPRINTS = {
         LastFmAuthBlueprint(
             name = 'lastfm',
             api = APIS['lastfm'],
+            oauth_refused_view = 'home.index',
+            oauth_completed_view = 'home.index'
+        ),
+    'google_tasks':
+        OAuthBlueprint(
+            name = 'google_tasks',
+            api = APIS['google_tasks'],
             oauth_refused_view = 'home.index',
             oauth_completed_view = 'home.index'
         )

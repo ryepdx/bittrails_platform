@@ -31,6 +31,12 @@ def update_user(sender, response, access_token):
     if not 'external_tokens' in user or not isinstance(user['external_tokens'], dict):
         user['external_tokens'] = {}
         
+    if not 'refresh_tokens' in user:
+        user['refresh_tokens'] = {}
+    
+    if 'refresh_token' in response.content:
+        user['refresh_tokens'][session['realm']] = response.content['refresh_token']
+        
     user['external_tokens'][session['realm']] = access_token
     
     if not current_user.is_authenticated():

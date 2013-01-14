@@ -2,11 +2,13 @@ import auth
 import hashlib
 import requests
 import json
+import rauth.service
 
+from functools import wraps
 from flask_rauth import RauthOAuth1, RauthOAuth2
 from flask import redirect, url_for, request, Blueprint, render_template, session, abort
 from flask.ext.login import current_user
-from flask.ext.rauth import ACCESS_DENIED
+from flask.ext.rauth import ACCESS_DENIED, RauthException, RauthResponse
 from blinker import Namespace
 from auth_settings import TOKENS_KEY
 from auth import signals
@@ -66,7 +68,7 @@ class OAuthBlueprint(Blueprint):
         """
         def begin_oauth():
             url = url_for('.finished', _external = True)
-            resp = self.api.authorize(callback = url)
+            resp = self.api.authorize(callback = url, **self.api.auth_params)
             return resp
         return begin_oauth
 
@@ -131,6 +133,10 @@ class OAuthGetUID(object):
 
 
 class OAuth(RauthOAuth1, OAuthGetUID):
+    def __init__(self, auth_params = {}, **kwargs):
+        self.auth_params = auth_params
+        super(OAuth, self).__init__(**kwargs)
+        
     def request(self, method, uri, user = None, **kwargs):
         if user:
             return super(OAuth, self).request(method, uri,
@@ -138,7 +144,11 @@ class OAuth(RauthOAuth1, OAuthGetUID):
         else:
             return super(OAuth, self).request(method, uri, **kwargs)
 
-class OAuth2(RauthOAuth2, OAuthGetUID):
+class OAuth2(RauthOAuth2, OAuthGetUID): 
+    def __init__(self, auth_params = {}, **kwargs):
+        self.auth_params = auth_params
+        super(OAuth2, self).__init__(**kwargs)
+        
     def request(self, method, uri, user = None, **kwargs):
         if user:
             return super(OAuth2, self).request(method, uri,
@@ -177,6 +187,18 @@ class TwitterOAuth(OAuth):
             return response.args.get('screen_name')
         elif hasattr(response, 'content'):
             return response.content.get('screen_name')
+        else:
+            return None
+            
+class GoogleOAuth(OAuth2):
+    def get_uid(self, response, oauth_token = None):
+        if not oauth_token:
+            resp = self.get('oauth2/v1/userinfo', user = current_user)
+        else:
+            resp = self.get('oauth2/v1/userinfo', access_token = oauth_token)
+
+        if resp.status == 200:
+            return resp.content['email']
         else:
             return None
     
