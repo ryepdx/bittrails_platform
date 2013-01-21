@@ -1,5 +1,6 @@
 # Mock classes to facilitate testing.
 from twitter_mock_responses import TWITTER_MOCK_RESPONSES
+from lastfm_mock_responses import LASTFM_MOCK_RESPONSES
 
 class MockResponse(object):
     def __init__(self, content):
@@ -19,5 +20,11 @@ class MockTwitterAPI(MockAPI):
     @property
     def uris(self):
         return TWITTER_MOCK_RESPONSES
+        
 
-APIS = {'twitter': MockTwitterAPI()}
+class MockLastFmAPI(MockAPI):
+    @property
+    def uris(self):
+        return LASTFM_MOCK_RESPONSES
+
+APIS = {'twitter': MockTwitterAPI(), 'lastfm': MockLastFmAPI()}

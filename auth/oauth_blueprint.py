@@ -241,14 +241,14 @@ class LastFmAuth(requests.Session, OAuthGetUID):
                     [param.split('=') for param in params.split('&')]
                 ), user).items())
              
-        return super(LastFmAuth, self).request(method, uri,
+        return super(LastFmAuth, self).request(method, self.base_url + uri,
             data = kwargs.get('data'), **kwargs)
             
     def get_signed_params(self, params, user):
         sig_string = ''
         params['api_key'] = self.consumer_key
         
-        if user and user.is_authenticated() and self.name in user['external_tokens']:
+        if user and self.name in user['external_tokens']:
             params['sk'] = user['external_tokens'][self.name]
             
         for key in sorted(params.keys()):

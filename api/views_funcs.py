@@ -20,10 +20,12 @@ DATE_FORMATS = {
 def increment_time(datetime_obj, interval_name):
     
     if interval_name == 'day':
-        datetime_obj = datetime_obj + datetime.timedelta(days=1)
+        datetime_obj = (PostsCount.get_day_start(datetime_obj)
+            + datetime.timedelta(days=1))
     
     elif interval_name == 'week':
-        datetime_obj = datetime_obj + datetime.timedelta(days=7)
+        datetime_obj = (PostsCount.get_week_start(datetime_obj)
+            + datetime.timedelta(days=7))
     
     elif interval_name == 'month':
         month = datetime_obj.month + 1
@@ -32,11 +34,11 @@ def increment_time(datetime_obj, interval_name):
         if month > 12:
             month = month % 12
             year = year + 1
-        datetime_obj = datetime.datetime(year, month, datetime_obj.day)
+        datetime_obj = datetime.datetime(year, month, 1)
             
     elif interval_name == 'year':
         datetime_obj = datetime.datetime(
-            datetime_obj.year + 1, datetime_obj.month, datetime_obj.day)
+            datetime_obj.year + 1, 1, 1)
             
     return datetime_obj
 
@@ -50,7 +52,8 @@ def get_posts_count_func(user, service, param_path):
     now = datetime.datetime(now.year, now.month, now.day)
     interval = params.get('by', 'week')
     
-    begin = params.get('from', (now - datetime.timedelta(days=30)))
+    begin = PostsCount.get_start_of(interval, params.get(
+        'from', (now - datetime.timedelta(days=30))))
     end = params.get('to', now)
     date_format = DATE_FORMATS.get(
         params.get('as', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
@@ -59,6 +62,7 @@ def get_posts_count_func(user, service, param_path):
             'interval': interval, 'interval_start': {'$gte': begin, '$lte': end},
             'datastream': service, 'user_id': user['_id']
         }).sort('interval_start', direction = pymongo.ASCENDING)
+    
     result_counts = dict((
         (date_format(result['interval_start']), result['posts_count'])
         for result in results

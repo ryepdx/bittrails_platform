@@ -3,8 +3,8 @@ import json
 from db.models import Model, mongodb_init
 from oauth_provider.models import User
 from models import PostsCount, LastPostRetrieved
-from posts_count import TwitterPostCounter
-from posts import TwitterPosts
+from posts_count import TwitterPostCounter, LastfmScrobbleCounter
+from posts import TwitterPosts, LastfmScrobbles
 from auth import APIS
 
 class Tasks(object):
@@ -18,7 +18,7 @@ class Tasks(object):
             uid = self.uid, datastream = self.datastream_name)
         last_post_id = last_post.post_id if last_post.post_id else 1
         posts = self.iterator_class(self.user, self.uid,
-            latest_id = last_post_id, api = self.api)
+            latest_position = last_post_id, api = self.api)
             
         for post in posts:
             for handler in self.handlers:
@@ -27,11 +27,23 @@ class Tasks(object):
         for handler in self.handlers:
             handler.finalize()
             
-        last_post.post_id = posts.latest_id
+        last_post.post_id = posts.latest_position
         last_post.save()
         
     @property
+    def iterator_class(self):
+        '''
+        Should return an iterator that iterates through the results of
+        some call to the datastream's API.
+        '''
+        NotImplemented("Child classes must define this property.")
+        
+    @property
     def datastream_name(self):
+        '''
+        Should return the key for the API object in the auth.APIS dictionary
+        that the iterator will use to grab its data.
+        '''
         NotImplemented("Child classes must define this property.")
         
         
@@ -49,3 +61,18 @@ class TwitterTasks(Tasks):
     @property
     def datastream_name(self):
         return 'twitter'
+
+class LastfmTasks(Tasks):
+    def __init__(self, *args, **kwargs):
+        super(LastfmTasks, self).__init__(*args, **kwargs)
+        self.handlers = [
+            LastfmScrobbleCounter()
+        ]
+    
+    @property
+    def iterator_class(self):
+        return LastfmScrobbles
+        
+    @property
+    def datastream_name(self):
+        return 'lastfm'

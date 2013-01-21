@@ -22,6 +22,16 @@ class LastPostRetrieved(AsyncModel):
 class PostsCount(AsyncModel):
     table = 'posts_count'
     
+    interval_funcs = {
+            'day': lambda date_obj: datetime.datetime(
+                date_obj.year, date_obj.month, date_obj.day),
+            'week': lambda date_obj: datetime.datetime.strptime(
+                date_obj.strftime('%Y %U 1'), '%Y %U %w'),
+            'month': lambda date_obj: datetime.datetime(
+                date_obj.year, date_obj.month, 1),
+            'year': lambda date_obj: datetime.datetime(date_obj.year, 1, 1)
+        }
+    
     @mongodb_init
     def __init__(self, user_id = '', interval = '', interval_start = None,
     datastream = '', posts_count = 0):
@@ -33,17 +43,20 @@ class PostsCount(AsyncModel):
 
     @classmethod
     def get_year_start(cls, date_obj):
-        return datetime.datetime(date_obj.year, 1, 1)
+        return cls.get_start_of('year', date_obj)
 
     @classmethod
     def get_month_start(cls, date_obj):
-        return datetime.datetime(date_obj.year, date_obj.month, 1)
+        return cls.get_start_of('month', date_obj)
 
     @classmethod
     def get_week_start(cls, date_obj):
-        return datetime.datetime.strptime(
-            date_obj.strftime('%Y %U 1'), '%Y %U %w')
+        return cls.get_start_of('week', date_obj)
 
     @classmethod
     def get_day_start(cls, date_obj):
-        return datetime.datetime(date_obj.year, date_obj.month, date_obj.day)
+        return cls.get_start_of('day', date_obj)
+
+    @classmethod
+    def get_start_of(cls, interval, date_obj):
+        return cls.interval_funcs[interval](date_obj)

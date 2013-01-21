@@ -61,3 +61,16 @@ class TwitterPostCounter(PostCounter):
         dt = datetime.datetime(*time_tuple[:6])
         return dt - datetime.timedelta(seconds=time_tuple[-1])
 
+class LastfmScrobbleCounter(PostCounter):
+    def __init__(self):
+        super(LastfmScrobbleCounter, self).__init__('lastfm')
+        
+    @classmethod
+    def get_datetime(cls, post):
+        assert 'date' in post
+        assert 'uts' in post['date']
+        time_tuple = datetime.datetime.utcfromtimestamp(
+            int(post['date']['uts'].strip())).timetuple()
+        dt = datetime.datetime(*time_tuple[:6])
+        return dt - datetime.timedelta(seconds=time_tuple[-1])
+
