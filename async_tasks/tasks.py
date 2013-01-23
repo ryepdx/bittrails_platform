@@ -3,22 +3,26 @@ import json
 from db.models import Model, mongodb_init
 from oauth_provider.models import User
 from models import PostsCount, LastPostRetrieved
-from posts_count import TwitterPostCounter, LastfmScrobbleCounter
-from posts import TwitterPosts, LastfmScrobbles
+from posts_count import (TwitterPostCounter, LastfmScrobbleCounter,
+    GoogleCompletedTasksCounter)
+from posts import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
 from auth import APIS
 
 class Tasks(object):
     def __init__(self, user, uid, api = None):  
         self.user = user
-        self.uid = uid       
+        self.uid = uid
         self.api = api if api else APIS[self.datastream_name]
     
     def run(self):
         last_post = LastPostRetrieved.find_or_create(
             uid = self.uid, datastream = self.datastream_name)
-        last_post_id = last_post.post_id if last_post.post_id else 1
-        posts = self.iterator_class(self.user, self.uid,
-            latest_position = last_post_id, api = self.api)
+        
+        kwargs = {'api': self.api}
+        if last_post.post_id:
+            kwargs['latest_position'] = last_post.post_id
+            
+        posts = self.iterator_class(self.user, self.uid, **kwargs)
             
         for post in posts:
             for handler in self.handlers:
@@ -62,6 +66,7 @@ class TwitterTasks(Tasks):
     def datastream_name(self):
         return 'twitter'
 
+
 class LastfmTasks(Tasks):
     def __init__(self, *args, **kwargs):
         super(LastfmTasks, self).__init__(*args, **kwargs)
@@ -76,3 +81,19 @@ class LastfmTasks(Tasks):
     @property
     def datastream_name(self):
         return 'lastfm'
+
+
+class GoogleTasks(Tasks):
+    def __init__(self, *args, **kwargs):
+        super(GoogleTasks, self).__init__(*args, **kwargs)
+        self.handlers = [
+            GoogleCompletedTasksCounter()
+        ]
+    
+    @property
+    def iterator_class(self):
+        return GoogleCompletedTasks
+        
+    @property
+    def datastream_name(self):
+        return 'google_tasks'

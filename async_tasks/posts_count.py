@@ -74,3 +74,12 @@ class LastfmScrobbleCounter(PostCounter):
         dt = datetime.datetime(*time_tuple[:6])
         return dt - datetime.timedelta(seconds=time_tuple[-1])
 
+class GoogleCompletedTasksCounter(PostCounter):
+    def __init__(self):
+        super(GoogleCompletedTasksCounter, self).__init__('google_tasks')
+        
+    @classmethod
+    def get_datetime(cls, post):
+        assert 'completed' in post
+        return datetime.datetime.strptime(
+            post['completed'].strip()[0:10], '%Y-%m-%d')

@@ -46,7 +46,7 @@ APIS = {'twitter': TwitterOAuth(
         ),
         'google_tasks': GoogleOAuth(
             name = 'google_tasks',
-            base_url = 'https://www.googleapis.com',
+            base_url = 'https://www.googleapis.com/',
             access_token_url = 'https://accounts.google.com/o/oauth2/token',
             authorize_url = 'https://accounts.google.com/o/oauth2/auth',
             consumer_key = GOOGLE_KEY, 
@@ -55,7 +55,8 @@ APIS = {'twitter': TwitterOAuth(
                 'access_type': 'offline',
                 'response_type': 'code',
                 'scope': 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/tasks.readonly'
-            }
+            },
+            request_params = {'key': GOOGLE_KEY}
         )
     }
 

@@ -14,6 +14,7 @@ def main():
         import api.views
 
     app.secret_key = APP_SECRET_KEY
+    app.config['TRAP_BAD_REQUEST_ERRORS'] = DEBUG
 
     # Register all our routes and blueprints.
     register_auth_blueprints(app)

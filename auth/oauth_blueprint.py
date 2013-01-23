@@ -133,8 +133,9 @@ class OAuthGetUID(object):
 
 
 class OAuth(RauthOAuth1, OAuthGetUID):
-    def __init__(self, auth_params = {}, **kwargs):
+    def __init__(self, auth_params = {}, request_params = {}, **kwargs):
         self.auth_params = auth_params
+        self.request_params = request_params
         super(OAuth, self).__init__(**kwargs)
         
     def request(self, method, uri, user = None, **kwargs):
@@ -145,11 +146,22 @@ class OAuth(RauthOAuth1, OAuthGetUID):
             return super(OAuth, self).request(method, uri, **kwargs)
 
 class OAuth2(RauthOAuth2, OAuthGetUID): 
-    def __init__(self, auth_params = {}, **kwargs):
+    def __init__(self, auth_params = {}, request_params = {}, **kwargs):
         self.auth_params = auth_params
+        self.request_params = request_params
         super(OAuth2, self).__init__(**kwargs)
         
     def request(self, method, uri, user = None, **kwargs):
+        if self.request_params:
+            params = []
+            for key, value in self.request_params.items():
+                params.append(key+'='+value)
+                
+            if '?' in uri:
+                uri = (uri + '&' + '&'.join(params))
+            else:
+                uri = (uri + '?' + '&'.join(params))
+        
         if user:
             return super(OAuth2, self).request(method, uri,
                 access_token = user['external_tokens'][self.name], **kwargs)
@@ -157,16 +169,17 @@ class OAuth2(RauthOAuth2, OAuthGetUID):
             return super(OAuth2, self).request(method, uri, **kwargs)
 
 class FoursquareOAuth(OAuth2):
-    def request(self, method, uri, user = None, **kwargs):
+    def request(self, method, uri, user = None, oauth_token = None, **kwargs):
         if user:
+            oauth_token = user['external_tokens'][self.name]
+        
+        if oauth_token:    
             if '?' in uri:
-                uri = (uri + '&oauth_token=%s'
-                    % user['external_tokens'][self.name])
+                uri = (uri + '&oauth_token=%s' % oauth_token)
             else:
-                uri = (uri + '?oauth_token=%s'
-                    % user['external_tokens'][self.name])
+                uri = (uri + '?oauth_token=%s' % oauth_token)
             return super(FoursquareOAuth, self).request(method, uri,
-                user = user, **kwargs)
+                access_token = oauth_token, **kwargs)
         else:
             return abort(400)
             
@@ -190,7 +203,7 @@ class TwitterOAuth(OAuth):
         else:
             return None
             
-class GoogleOAuth(OAuth2):
+class GoogleOAuth(OAuth2):   
     def get_uid(self, response, oauth_token = None):
         if not oauth_token:
             resp = self.get('oauth2/v1/userinfo', user = current_user)
@@ -240,7 +253,7 @@ class LastFmAuth(requests.Session, OAuthGetUID):
                 self.get_signed_params(dict(
                     [param.split('=') for param in params.split('&')]
                 ), user).items())
-             
+        
         return super(LastFmAuth, self).request(method, self.base_url + uri,
             data = kwargs.get('data'), **kwargs)
             
