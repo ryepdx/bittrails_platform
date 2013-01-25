@@ -19,8 +19,9 @@ class LastPostRetrieved(AsyncModel):
         self.datastream = datastream
         self.post_id = post_id
 
-class PostsCount(AsyncModel):
-    table = 'posts_count'
+
+class TimeSeriesModel(AsyncModel):
+    table = None
     
     interval_funcs = {
             'day': lambda date_obj: datetime.datetime(
@@ -34,13 +35,12 @@ class PostsCount(AsyncModel):
     
     @mongodb_init
     def __init__(self, user_id = '', interval = '', interval_start = None,
-    datastream = '', posts_count = 0):
+    datastream = ''):
         self.user_id = user_id
         self.interval = interval
         self.interval_start = interval_start
         self.datastream = datastream
-        self.posts_count = posts_count
-
+        
     @classmethod
     def get_year_start(cls, date_obj):
         return cls.get_start_of('year', date_obj)
@@ -60,3 +60,23 @@ class PostsCount(AsyncModel):
     @classmethod
     def get_start_of(cls, interval, date_obj):
         return cls.interval_funcs[interval](date_obj)
+
+
+class PostsCount(TimeSeriesModel):
+    table = 'posts_count'
+    
+    def __init__(self, posts_count = 0, **kwargs):
+        self.posts_count = posts_count
+        super(PostsCount, self).__init__(**kwargs)
+
+
+class Average(TimeSeriesModel):
+    table = 'average'
+    
+    def __init__(self, numerator = 0, denominator = 0, **kwargs):
+        self.numerator = numerator
+        self.denominator = denominator
+        super(Average, self).__init__(**kwargs)
+        
+    def __str__(self):
+        return self.numerator / self.denominator
