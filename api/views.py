@@ -8,7 +8,7 @@ from flask.ext.login import current_user
 from auth import APIS
 from oauth_provider.models import User, AccessToken
 from oauth_provider.views import PROVIDER
-from views_funcs import get_posts_count_func, passthrough
+from views_funcs import get_post_counts_func, passthrough
 
 app = Blueprint('api', __name__)
 
@@ -39,10 +39,10 @@ def correlate():
         max_date = max_date - timedelta(hours=1)
         counts_blank[max_date.strftime(date_format)] = 0 
 
-@app.route('/bittrails/count/<service>/posts/<path:param_path>')
-def get_posts_count(service, param_path):
+@app.route('/bittrails/<service>/post_counts/<path:param_path>')
+def get_post_counts(service, param_path):
     return decorators.provide_oauth_user(
-            PROVIDER.require_oauth(realm = service)(get_posts_count_func)
+            PROVIDER.require_oauth(realm = service)(get_post_counts_func)
         )(service, param_path)
         
 
@@ -53,5 +53,13 @@ def register_apis(apis):
         return decorators.provide_oauth_user(
                 PROVIDER.require_oauth(realm = service)(passthrough)
             )(apis, service, endpoint)
+            
+            
+    @app.route('/bittrails/datastreams')
+    def datastreams():
+        return json.dumps(dict([
+            (key, {'aspects': value.get_aspects()})
+            for key, value in APIS.items()
+        ]))
         
 auth.signals.services_registered.connect(register_apis)

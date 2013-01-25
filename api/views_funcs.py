@@ -42,7 +42,7 @@ def increment_time(datetime_obj, interval_name):
             
     return datetime_obj
 
-def get_posts_count_func(user, service, param_path):        
+def get_post_counts_func(user, service, param_path):        
     param_list = param_path.split('/')
     params = dict(
         [(param_list[i*2], param_list[(i*2)+1])

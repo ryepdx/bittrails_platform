@@ -18,7 +18,8 @@ APIS = {'twitter': TwitterOAuth(
             access_token_url = 'https://api.twitter.com/oauth/access_token',
             authorize_url = 'https://api.twitter.com/oauth/authenticate',
             consumer_key = TWITTER_KEY,
-            consumer_secret = TWITTER_SECRET
+            consumer_secret = TWITTER_SECRET,
+            aspects = ['post_counts']
         ),
         'foursquare': FoursquareOAuth(
             name = 'foursquare',
@@ -27,6 +28,7 @@ APIS = {'twitter': TwitterOAuth(
             authorize_url = 'https://foursquare.com/oauth2/authorize',
             consumer_key = FOURSQUARE_CLIENT_ID, 
             consumer_secret = FOURSQUARE_CLIENT_SECRET,
+            aspects = ['post_counts']
         ),
         'fitbit': OAuth(
             name = 'fitbit',
@@ -35,14 +37,17 @@ APIS = {'twitter': TwitterOAuth(
             access_token_url = 'http://api.fitbit.com/oauth/access_token',
             authorize_url = 'http://api.fitbit.com/oauth/authorize',
             consumer_key = FITBIT_KEY, 
-            consumer_secret = FITBIT_SECRET),
+            consumer_secret = FITBIT_SECRET,
+            aspects = ['post_counts']
+        ),
         'lastfm': LastFmAuth(
             name = 'lastfm',
             base_url = 'http://ws.audioscrobbler.com/2.0/',
             access_token_url = 'http://ws.audioscrobbler.com/2.0/?method=auth.getSession&format=json',
             authorize_url = 'http://www.last.fm/api/auth/',
             consumer_key = LASTFM_KEY,
-            consumer_secret = LASTFM_SECRET
+            consumer_secret = LASTFM_SECRET,
+            aspects = ['post_counts']
         ),
         'google_tasks': GoogleOAuth(
             name = 'google_tasks',
@@ -56,7 +61,8 @@ APIS = {'twitter': TwitterOAuth(
                 'response_type': 'code',
                 'scope': 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/tasks.readonly'
             },
-            request_params = {'key': GOOGLE_KEY}
+            request_params = {'key': GOOGLE_KEY},
+            aspects = ['post_counts']
         )
     }
 

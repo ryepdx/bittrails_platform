@@ -127,12 +127,19 @@ class LastFmAuthBlueprint(OAuthBlueprint):
             return redirect(url_for(self.oauth_completed_view))
         return oauth_finished
 
-class OAuthGetUID(object):
+class Datastream(object):
+    def __init__(self, aspects = [], **kwargs):
+        self.aspects = aspects
+        super(Datastream, self).__init__(**kwargs)
+        
+    def get_aspects(self):
+        return self.aspects
+    
     def get_uid(self, request):
         raise NotImplemented("Child class must implement this method!")
 
 
-class OAuth(RauthOAuth1, OAuthGetUID):
+class OAuth(Datastream, RauthOAuth1):
     def __init__(self, auth_params = {}, request_params = {}, **kwargs):
         self.auth_params = auth_params
         self.request_params = request_params
@@ -145,7 +152,7 @@ class OAuth(RauthOAuth1, OAuthGetUID):
         else:
             return super(OAuth, self).request(method, uri, **kwargs)
 
-class OAuth2(RauthOAuth2, OAuthGetUID): 
+class OAuth2(Datastream, RauthOAuth2): 
     def __init__(self, auth_params = {}, request_params = {}, **kwargs):
         self.auth_params = auth_params
         self.request_params = request_params
@@ -215,10 +222,10 @@ class GoogleOAuth(OAuth2):
         else:
             return None
     
-class LastFmAuth(requests.Session, OAuthGetUID):
+class LastFmAuth(Datastream, requests.Session):
     def __init__(self, app = None, name = None, base_url = None,
     access_token_url = None, authorize_url = None, consumer_key = None,
-    consumer_secret = None):
+    consumer_secret = None, **kwargs):
         self.app = app
         self.name = name
         self.base_url = base_url
@@ -228,7 +235,7 @@ class LastFmAuth(requests.Session, OAuthGetUID):
         self.consumer_secret = consumer_secret
         super(LastFmAuth, self).__init__(headers=None, cookies=None, auth=None,
             timeout=None, proxies=None, hooks=None, params=None, config=None,
-            prefetch=True, verify=True, cert=None)
+            prefetch=True, verify=True, cert=None, **kwargs)
         
     def call_with_post(self, method, **kwargs):
         return self.call(method, http_method = "POST", **kwargs)
