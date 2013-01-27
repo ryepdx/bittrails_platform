@@ -10,6 +10,7 @@ LASTFM_SECRET = '72c62e1b9d0ac4bb7c3a56836f4cf885'
 GOOGLE_KEY = '825237488185.apps.googleusercontent.com'
 GOOGLE_SECRET = 'FH_tIvjgavOjl96wPU67Agn_'
 ECHO_NEST_KEY = 'IBK1KKUMNX8MB7UHR'
+ECHO_NEST_ID_LIMIT = 10
 
 DATABASE = 'oauth_provider'#'bittrails_platform'
 PORT = 5000

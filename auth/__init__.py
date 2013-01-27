@@ -47,7 +47,7 @@ APIS = {'twitter': TwitterOAuth(
             authorize_url = 'http://www.last.fm/api/auth/',
             consumer_key = LASTFM_KEY,
             consumer_secret = LASTFM_SECRET,
-            aspects = ['post_counts']
+            aspects = ['post_counts', 'average_energy']
         ),
         'google_tasks': GoogleOAuth(
             name = 'google_tasks',

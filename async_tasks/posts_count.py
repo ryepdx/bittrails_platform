@@ -1,7 +1,9 @@
 import datetime
 from pyechonest import song as pyechonest_song
+from pyechonest.util import EchoNestAPIError
 
 from api import INTERVALS
+from settings import ECHO_NEST_ID_LIMIT
 from email.utils import parsedate_tz
 from models import PostsCount, Average
 from oauth_provider.models import User
@@ -99,7 +101,7 @@ class LastfmSongEnergyAverager(TimeSeriesHandler):
         
     def handle(self, scrobble, intervals = INTERVALS):
         # Last.fm returns the MusicBrainz ID of each song you scrobble.
-        if 'mbid' in scrobble:
+        if 'mbid' in scrobble and scrobble['mbid']:
             # Echo Nest can use the MusicBrainz ID to look up the audio summary.
             # We're not looking it up now, though, since we can pass multiple
             # IDs in a single request. It's much more efficient to do it that
@@ -114,20 +116,55 @@ class LastfmSongEnergyAverager(TimeSeriesHandler):
                 'datetime': LastfmScrobbleCounter.get_datetime(scrobble)
             })
             
+    def get_songs(self, song_ids):
+        songs = []
+        
+        # Echo Nest limits the number of IDs you can include in a single request.
+        id_chunks = [song_ids[i*ECHO_NEST_ID_LIMIT:(i + 1) * ECHO_NEST_ID_LIMIT]
+            for i in range(0, (len(self.song_ids) / ECHO_NEST_ID_LIMIT) + 1)]
+            
+        # Using a while loop because we want it to reevaluate the conditional
+        # expression every time through the loop.
+        i = 0        
+        chunks_len = len(id_chunks)
+        
+        while i < chunks_len:
+            try:
+                songs += pyechonest_song.profile(id_chunks[i],
+                    buckets = ['audio_summary'])
+                i += 1
+            except EchoNestAPIError:
+                if isinstance(id_chunks[i], list) and len(id_chunks[i]) > 1:
+                    mid = len(id_chunks[i]) / 2
+                    
+                    # Split the current ID chunk if it's not composed of 1 id.
+                    # Otherwise just skip it.
+                    id_chunks = (
+                        id_chunks[:i]
+                        + [id_chunks[i][:mid]]
+                        + [id_chunks[i][mid:]]
+                        + id_chunks[i+1:]
+                    )
+                    # Update the chunks count.
+                    chunks_len = len(id_chunks)
+                else:
+                    i += 1
+            
+        return songs
             
     def finalize(self):
         energy = {}
         averages = {}
-        songs = pyechonest_song.profile(
-            ids = self.song_ids, buckets = ['audio_summary'])
+        
+        songs = self.get_songs(self.song_ids)
         
         # Index energy levels by song and artist for lookup efficiency later.
-        for song in songs['response']['songs']:
-            artist = song['artist_name']
+        for song in songs:
+            artist = song.artist_name
             if artist not in energy:
                 energy[artist] = {}
                 
-            energy[artist][song['title']] = song['audio_summary']['energy']
+            energy[artist][song.title] = song.audio_summary['energy']
             
         # Go through the scrobbles we summarized earlier and create Average
         # objects with the total energy for the interval as the numerator and
@@ -146,10 +183,15 @@ class LastfmSongEnergyAverager(TimeSeriesHandler):
                     averages[interval_key] = Average.find_or_create(
                         datastream = self.datastream_name,
                         interval = interval,
-                        interval_start = which_interval)
+                        interval_start = interval_start)
                 
-                averages[interval_key].numerator += energy[scrobble['artist']][scrobble['track']]
-                averages[interval_key].denominator += 1
+                # Unfortunately Echo Nest doesn't know about all the songs a
+                # user may scrobble.
+                if (scrobble['artist'] in energy
+                and scrobble['track'] in energy[scrobble['artist']]):
+                    averages[interval_key].numerator += (
+                        energy[scrobble['artist']][scrobble['track']])
+                    averages[interval_key].denominator += 1
                 
         # Save all the Average objects.
         for average in averages.values():
