@@ -10,8 +10,7 @@ def run_tasks(APIS):
     
     celery = Celery('bittrails_tasks', broker='amqp://guest@localhost//')
 
-    #tasks = { 'twitter': TwitterTasks, 'lastfm': LastfmTasks, 'google_tasks': GoogleTasks }
-    tasks = { 'lastfm': LastfmTasks }
+    tasks = { 'twitter': TwitterTasks, 'lastfm': LastfmTasks, 'google_tasks': GoogleTasks }
     users = User.get_collection().find()
         
     for user in users:

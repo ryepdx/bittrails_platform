@@ -35,11 +35,12 @@ class TimeSeriesModel(AsyncModel):
     
     @mongodb_init
     def __init__(self, user_id = '', interval = '', interval_start = None,
-    datastream = ''):
+    datastream = '', aspect = ''):
         self.user_id = user_id
         self.interval = interval
         self.interval_start = interval_start
         self.datastream = datastream
+        self.aspect = aspect
         
     @classmethod
     def get_year_start(cls, date_obj):
@@ -62,12 +63,12 @@ class TimeSeriesModel(AsyncModel):
         return cls.interval_funcs[interval](date_obj)
 
 
-class PostsCount(TimeSeriesModel):
-    table = 'posts_count'
+class Count(TimeSeriesModel):
+    table = 'count'
     
-    def __init__(self, posts_count = 0, **kwargs):
-        self.posts_count = posts_count
-        super(PostsCount, self).__init__(**kwargs)
+    def __init__(self, count = 0, **kwargs):
+        self.count = count
+        super(Count, self).__init__(**kwargs)
 
 
 class Average(TimeSeriesModel):

@@ -4,7 +4,7 @@ import datetime
 import time
 import collections
 from flask import abort, request
-from async_tasks.models import PostsCount
+from async_tasks.models import Count
 from oauth_provider.models import User, AccessToken, UID
 from oauthlib.common import add_params_to_uri
 
@@ -18,13 +18,13 @@ DATE_FORMATS = {
 }
 
 def increment_time(datetime_obj, interval_name):
-    
+    #import pdb; pdb.set_trace()
     if interval_name == 'day':
-        datetime_obj = (PostsCount.get_day_start(datetime_obj)
+        datetime_obj = (Count.get_day_start(datetime_obj)
             + datetime.timedelta(days=1))
     
     elif interval_name == 'week':
-        datetime_obj = (PostsCount.get_week_start(datetime_obj)
+        datetime_obj = (Count.get_week_start(datetime_obj)
             + datetime.timedelta(days=7))
     
     elif interval_name == 'month':
@@ -52,13 +52,13 @@ def get_post_counts_func(user, service, param_path):
     now = datetime.datetime(now.year, now.month, now.day)
     interval = params.get('by', 'week')
     
-    begin = PostsCount.get_start_of(interval, params.get(
+    begin = Count.get_start_of(interval, params.get(
         'from', (now - datetime.timedelta(days=30))))
     end = params.get('to', now)
     date_format = DATE_FORMATS.get(
         params.get('as', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
     
-    results = PostsCount.get_collection().find({
+    results = Count.get_collection().find({
             'interval': interval, 'interval_start': {'$gte': begin, '$lte': end},
             'datastream': service, 'user_id': user['_id']
         }).sort('interval_start', direction = pymongo.ASCENDING)

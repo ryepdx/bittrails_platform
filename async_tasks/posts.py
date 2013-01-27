@@ -187,6 +187,7 @@ class GoogleCompletedTasks(Posts):
     def get_tasklist_ids(self):
         result = self.api.get('tasks/v1/users/@me/lists?maxResults=1000000',
                 user = self.user)
+        import pdb; pdb.set_trace()
         return [task['id'] for task in result.content['items']]
 
     def position_gt(self, a, b):

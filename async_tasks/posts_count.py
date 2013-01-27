@@ -5,7 +5,7 @@ from pyechonest.util import EchoNestAPIError
 from api import INTERVALS
 from settings import ECHO_NEST_ID_LIMIT
 from email.utils import parsedate_tz
-from models import PostsCount, Average
+from models import Count, Average
 from oauth_provider.models import User
 
 class TimeSeriesHandler(object):
@@ -16,10 +16,10 @@ class TimeSeriesHandler(object):
     def get_timeslots(self, datetime_obj, intervals = INTERVALS):
         slots = {
             #'hour': self.get_hour(datetime_obj),
-            'day': PostsCount.get_day_start(datetime_obj),
-            'week': PostsCount.get_week_start(datetime_obj),
-            'month': PostsCount.get_month_start(datetime_obj),
-            'year': PostsCount.get_year_start(datetime_obj)
+            'day': Count.get_day_start(datetime_obj),
+            'week': Count.get_week_start(datetime_obj),
+            'month': Count.get_month_start(datetime_obj),
+            'year': Count.get_year_start(datetime_obj)
         }
         
         for key in slots.keys():
@@ -41,17 +41,18 @@ class PostCounter(TimeSeriesHandler):
         slots = self.get_timeslots(date_posted, intervals = intervals)
         
         for interval, interval_start in slots.items():
-            interval_key = self.get_interval_key(interval, str(interval_start))
+            count_key = self.get_interval_key(interval, str(interval_start))
             
             if count_key not in self.counts:
-                self.counts[count_key] = PostsCount.find_or_create(
+                self.counts[count_key] = Count.find_or_create(
                     user_id = self.user['_id'],
                     interval = interval,
                     interval_start = slots[interval],
-                    datastream = self.datastream_name
+                    datastream = self.datastream_name,
+                    aspect = 'post'
                 )
             
-            self.counts[count_key].posts_count += 1
+            self.counts[count_key].count += 1
 
     def finalize(self):
         for count in self.counts:
@@ -182,6 +183,7 @@ class LastfmSongEnergyAverager(TimeSeriesHandler):
                     # (E.g., no creating an Average for the month we're in.)
                     averages[interval_key] = Average.find_or_create(
                         datastream = self.datastream_name,
+                        aspect = 'song_energy',
                         interval = interval,
                         interval_start = interval_start)
                 
