@@ -3,8 +3,8 @@ import json
 import datetime
 import time
 import collections
+import async_tasks.models
 from flask import abort, request
-from async_tasks.models import Count
 from oauth_provider.models import User, AccessToken, UID
 from oauthlib.common import add_params_to_uri
 
@@ -18,14 +18,11 @@ DATE_FORMATS = {
 }
 
 def increment_time(datetime_obj, interval_name):
-    #import pdb; pdb.set_trace()
     if interval_name == 'day':
-        datetime_obj = (Count.get_day_start(datetime_obj)
-            + datetime.timedelta(days=1))
+        datetime_obj = datetime_obj + datetime.timedelta(days=1)
     
     elif interval_name == 'week':
-        datetime_obj = (Count.get_week_start(datetime_obj)
-            + datetime.timedelta(days=7))
+        datetime_obj = datetime_obj + datetime.timedelta(days=7)
     
     elif interval_name == 'month':
         month = datetime_obj.month + 1
@@ -42,43 +39,48 @@ def increment_time(datetime_obj, interval_name):
             
     return datetime_obj
 
-def get_post_counts_func(user, service, param_path):        
+def get_service_data_func(user, service, aspect, model_name, param_path):        
     param_list = param_path.split('/')
     params = dict(
         [(param_list[i*2], param_list[(i*2)+1])
          for i in range(0, len(param_list)/2)])
     
+    if hasattr(async_tasks.models, model_name.title()):
+        model_class = getattr(async_tasks.models, model_name.title())
+    else:
+        abort(404)
+    
     now = datetime.datetime.utcnow()
     now = datetime.datetime(now.year, now.month, now.day)
     interval = params.get('by', 'week')
     
-    begin = Count.get_start_of(interval, params.get(
+    begin = model_class.get_start_of(interval, params.get(
         'from', (now - datetime.timedelta(days=30))))
     end = params.get('to', now)
     date_format = DATE_FORMATS.get(
         params.get('as', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
     
-    results = Count.get_collection().find({
+    results = model_class.get_collection().find({
             'interval': interval, 'interval_start': {'$gte': begin, '$lte': end},
-            'datastream': service, 'user_id': user['_id']
+            'datastream': service, 'user_id': user['_id'], 'aspect': aspect
         }).sort('interval_start', direction = pymongo.ASCENDING)
     
-    result_counts = dict((
-        (date_format(result['interval_start']), result['posts_count'])
+    result_data = dict((
+        (date_format(result['interval_start']), model_class.get_data(result))
         for result in results
     ))
     
     # Modify so that it returns entries for the last few intervals,
     # rather than the last few entries.
-    counts = collections.OrderedDict()
+    data = collections.OrderedDict()
 
     while begin < end:
         key = date_format(begin)
-        counts[key] = result_counts.get(key, 0)
+        data[key] = result_data.get(key, 0)
         begin = increment_time(begin, interval)    
-
-    return json.dumps(counts)
-
+    
+    return json.dumps(data)
+    
 def passthrough(user, apis, service, endpoint):
     if request.args:
         params = filter(

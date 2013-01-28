@@ -1,4 +1,5 @@
 import datetime
+import logging
 from pyechonest import song as pyechonest_song
 from pyechonest.util import EchoNestAPIError
 
@@ -9,9 +10,10 @@ from models import Count, Average
 from oauth_provider.models import User
 
 class TimeSeriesHandler(object):
-    def __init__(self, datastream_name, user):
+    def __init__(self, datastream_name, user, logger = None):
         self.user = user
         self.datastream_name = datastream_name
+        self.logger = logger if logger else logging.getLogger(__name__)
     
     def get_timeslots(self, datetime_obj, intervals = INTERVALS):
         slots = {
@@ -32,6 +34,8 @@ class TimeSeriesHandler(object):
         return '%s:%s' % (interval, interval_start)
 
 class PostCounter(TimeSeriesHandler):
+    aspect = 'post'
+    
     def __init__(self, *args, **kwargs):
         self.counts = {}
         super(PostCounter, self).__init__(*args, **kwargs)
@@ -49,7 +53,7 @@ class PostCounter(TimeSeriesHandler):
                     interval = interval,
                     interval_start = slots[interval],
                     datastream = self.datastream_name,
-                    aspect = 'post'
+                    aspect = self.aspect
                 )
             
             self.counts[count_key].count += 1
@@ -60,22 +64,26 @@ class PostCounter(TimeSeriesHandler):
 
 
 class TwitterPostCounter(PostCounter):
+    aspect = "tweet"
+    
     def __init__(self, user):
         super(TwitterPostCounter, self).__init__('twitter', user)
         
-    @classmethod
-    def get_datetime(cls, post):
-        assert 'created_at' in post
+    def get_datetime(self, post):
+        try:
+            assert 'created_at' in post
+        except AssertionError as err:
+            self.logger.critical(
+                'While getting tweets for user %s on tweet: %s'
+                    % (self.user['_id'], str(post)),
+                exc_info = err)
+            raise
         time_tuple = parsedate_tz(post['created_at'].strip())
         dt = datetime.datetime(*time_tuple[:6])
         return dt - datetime.timedelta(seconds=time_tuple[-1])
 
-class LastfmScrobbleCounter(PostCounter):
-    def __init__(self, user):
-        super(LastfmScrobbleCounter, self).__init__('lastfm', user)
-        
-    @classmethod
-    def get_datetime(cls, post):
+class LastfmScrobbleMixin(object):
+    def get_datetime(self, post):
         assert 'date' in post
         assert 'uts' in post['date']
         time_tuple = datetime.datetime.utcfromtimestamp(
@@ -83,18 +91,27 @@ class LastfmScrobbleCounter(PostCounter):
         dt = datetime.datetime(*time_tuple[:6])
         return dt - datetime.timedelta(seconds=time_tuple[-1])
 
+class LastfmScrobbleCounter(LastfmScrobbleMixin, PostCounter):
+    aspect = 'scrobble'
+    
+    def __init__(self, user):
+        super(LastfmScrobbleCounter, self).__init__('lastfm', user)
+
 class GoogleCompletedTasksCounter(PostCounter):
+    aspect = "completed_task"
+    
     def __init__(self, user):
         super(GoogleCompletedTasksCounter, self).__init__('google_tasks', user)
         
-    @classmethod
-    def get_datetime(cls, post):
+    def get_datetime(self, post):
         assert 'completed' in post
         return datetime.datetime.strptime(
             post['completed'].strip()[0:10], '%Y-%m-%d')
 
 
-class LastfmSongEnergyAverager(TimeSeriesHandler):
+class LastfmSongEnergyAverager(LastfmScrobbleMixin, TimeSeriesHandler):
+    aspect = 'song_energy'
+    
     def __init__(self, user):
         super(LastfmSongEnergyAverager, self).__init__('lastfm', user)
         self.song_ids = []
@@ -114,7 +131,7 @@ class LastfmSongEnergyAverager(TimeSeriesHandler):
             self.scrobbles.append({
                 'artist': scrobble['artist']['#text'],
                 'track': scrobble['name'],
-                'datetime': LastfmScrobbleCounter.get_datetime(scrobble)
+                'datetime': self.get_datetime(scrobble)
             })
             
     def get_songs(self, song_ids):
@@ -182,8 +199,9 @@ class LastfmSongEnergyAverager(TimeSeriesHandler):
                     # and that we only average on *complete* time periods.
                     # (E.g., no creating an Average for the month we're in.)
                     averages[interval_key] = Average.find_or_create(
+                        user_id = self.user['_id'],
                         datastream = self.datastream_name,
-                        aspect = 'song_energy',
+                        aspect = self.aspect,
                         interval = interval,
                         interval_start = interval_start)
                 

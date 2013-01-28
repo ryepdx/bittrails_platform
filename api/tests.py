@@ -9,7 +9,7 @@ class PostsCountTestCase(unittest.TestCase):
         self.user = User(_id = ObjectId("50e209f8fb5d1b6d96ad37b7"))
         
     def test_post_count(self):
-        counts = views_funcs.get_posts_count_func(
+        counts = views_funcs.get_post_counts_func(
             self.user, 'twitter', 'by/week')
         self.assertTrue(len(counts) > 0)
 

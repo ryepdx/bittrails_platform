@@ -13,6 +13,7 @@ from blinker import Namespace
 from auth_settings import TOKENS_KEY
 from auth import signals
 from oauthlib.common import add_params_to_uri
+from oauth_provider.models import User
 
 def oauth_completed(sender, response, access_token):
     if TOKENS_KEY not in session:
@@ -210,7 +211,9 @@ class TwitterOAuth(OAuth):
         else:
             return None
             
-class GoogleOAuth(OAuth2):   
+class GoogleOAuth(OAuth2):
+    refresh_token_url = "https://accounts.google.com/o/oauth2/token"
+    
     def get_uid(self, response, oauth_token = None):
         if not oauth_token:
             resp = self.get('oauth2/v1/userinfo', user = current_user)
@@ -221,6 +224,42 @@ class GoogleOAuth(OAuth2):
             return resp.content['email']
         else:
             return None
+            
+    def request(self, *args, **kwargs):
+        response = super(GoogleOAuth, self).request(*args, **kwargs)
+            
+        # If the token has expired, we need to request a new one and try again.
+        # We can only do this, though, if a user was passed in.
+        if ("error" in response.content
+        and "message" in response.content["error"]
+        and response.content["error"]["message"] == u'Invalid Credentials'
+        and kwargs.get('user', False)):
+            
+            user = kwargs.get('user')
+            
+            # Request a new access token.
+            super(GoogleOAuth, self).post(self.refresh_token_url,
+                data = {'refresh_token': user['refresh_tokens'][self.name],
+                        'grant_type': 'refresh_token'
+                }, user = user)
+            
+            # If the user variable is not a User object, retrieve the
+            # corresponding object.    
+            if ((not hasattr(user, 'save') or not callable(user.save))
+            and '_id' in user):
+                user = User.find_one({'_id': user['_id']}, as_obj = True)
+                
+            # Update the user's Google access token and save it.
+            user['external_tokens'][self.name] = (
+                response.content.get('access_token'))
+            user.save()
+            
+            # Retry the original request with the new token.
+            kwargs['user'] = user
+            response = super(GoogleOAuth, self).request(*args, **kwargs)
+        
+        return response
+        
     
 class LastFmAuth(Datastream, requests.Session):
     def __init__(self, app = None, name = None, base_url = None,

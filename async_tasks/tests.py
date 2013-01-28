@@ -53,14 +53,14 @@ class TestTwitterPostCounter(unittest.TestCase):
     def setUp(self):
         self.user = User.find_one(ObjectId("50e3da15ab0ddcff7dd3c187"), as_obj = True)
         self.username = 'ryepdx'
-        self.counter = TwitterPostCounter()
+        self.counter = TwitterPostCounter(self.user)
         
     def given_posts(self):
         return TwitterPosts(self.user, self.username, api = APIS['twitter'])
         
     def when_all_are_counted(self, posts):
         for post in posts:
-            self.counter.handle(self.user, post)
+            self.counter.handle(post)
         return self.counter.counts
         
     def should_have_correct_counts(self, counts):
@@ -71,7 +71,8 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'datastream': 'twitter',
                 'interval': 'day',
                 'user_id': self.user._id,
-                'posts_count': 15
+                'count': 15,
+                'aspect': 'post'
             })
 
         self.assertEqual(
@@ -81,7 +82,8 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'datastream': 'twitter',
                 'interval': 'week',
                 'user_id': self.user._id,
-                'posts_count': 42
+                'count': 42,
+                'aspect': 'post'
             })
             
         self.assertEqual(
@@ -91,7 +93,8 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'datastream': 'twitter',
                 'interval': 'month',
                 'user_id': self.user._id,
-                'posts_count': 9
+                'count': 9,
+                'aspect': 'post'
             })
             
     def test_counts(self):

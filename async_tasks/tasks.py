@@ -1,6 +1,6 @@
 import string
 import json
-import sys
+import logging
 from db.models import Model, mongodb_init
 from oauth_provider.models import User
 from models import Count, LastPostRetrieved
@@ -10,12 +10,13 @@ from posts import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
 from auth import APIS
 
 class Tasks(object):
-    def __init__(self, user, uid, api = None):  
+    def __init__(self, user, uid, api = None, logger = None):  
         self.user = user
         self.uid = uid
         self.api = api if api else APIS[self.datastream_name]
+        self.logger = logger if logger else logging.getLogger(__name__)
     
-    def run(self, logger = None):
+    def run(self):
         last_post = LastPostRetrieved.find_or_create(
             uid = self.uid, datastream = self.datastream_name)
         
@@ -35,14 +36,10 @@ class Tasks(object):
                 
         except:
             # If there was an exception, log it.
-            err_msg = ("Exception while handling %s tasks for user %s.\n"
+            self.logger.exception(
+                "Exception while handling %s tasks for user %s.\n"
                     % (self.datastream_name, self.user['_id']))
-            if logger:
-                logger.error(err_msg, exc_info = err)
-            else:
-                # No logger? We don't want to fail silently!
-                sys.stderr.write(err_msg)
-                raise
+            
         finally:
             # No matter what, we want to finalize all of the handlers and then
             # save the last post position successfully processed.
@@ -52,18 +49,12 @@ class Tasks(object):
                 last_post.save()
             
             except:
-                err_msg = ("Exception while finalizing %s task handlers "
-                    + "for user %s. Last post: %s\n" % (self.datastream_name,
-                        self.user['_id'], last_post.post_id))
                 # If finalizing the handlers and/or saving last_post failed,
                 # we definitely want to log that!
-                if logger:
-                    logger.error(err_msg, exc_info = err)
-                else:
-                    # No logger? Well, we don't want to fail silently!
-                    sys.stderr.write(err_msg)
-                    raise
-            
+                self.logger.exception(
+                    ("Exception while finalizing %s task handlers "
+                    + "for user %s. Last post: %s\n") % (self.datastream_name,
+                        self.user['_id'], last_post.post_id))
         
     @property
     def iterator_class(self):

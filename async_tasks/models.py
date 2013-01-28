@@ -1,6 +1,7 @@
 import datetime
 import string
 import json
+from decimal import Decimal
 from db.models import Model, mongodb_init
 from oauthlib.common import add_params_to_uri
 
@@ -8,6 +9,10 @@ class AsyncModel(Model):
     @classmethod
     def get_collection(cls, database = "async_tasks"):
         return super(AsyncModel, cls).get_collection(database = database)
+        
+    @classmethod
+    def get_data(cls, entry):
+        raise NotImplemented("Inheriting classes must implement this.")
         
 class LastPostRetrieved(AsyncModel):
     table = 'last_post_retrieved'
@@ -32,15 +37,6 @@ class TimeSeriesModel(AsyncModel):
                 date_obj.year, date_obj.month, 1),
             'year': lambda date_obj: datetime.datetime(date_obj.year, 1, 1)
         }
-    
-    @mongodb_init
-    def __init__(self, user_id = '', interval = '', interval_start = None,
-    datastream = '', aspect = ''):
-        self.user_id = user_id
-        self.interval = interval
-        self.interval_start = interval_start
-        self.datastream = datastream
-        self.aspect = aspect
         
     @classmethod
     def get_year_start(cls, date_obj):
@@ -61,7 +57,24 @@ class TimeSeriesModel(AsyncModel):
     @classmethod
     def get_start_of(cls, interval, date_obj):
         return cls.interval_funcs[interval](date_obj)
-
+        
+    @mongodb_init
+    def __init__(self, user_id = '', interval = '', interval_start = None,
+    datastream = '', aspect = ''):
+        # It's a keyword argument, sure, but it's not optional.
+        assert user_id
+        
+        self.user_id = user_id
+        self.interval = interval
+        self.interval_start = interval_start
+        self.datastream = datastream
+        self.aspect = aspect
+    
+    def save(self, *args, **kwargs):
+        # No, really. It's not optional.
+        assert 'user_id' in self and self['user_id']
+        return super(TimeSeriesModel, self).save(*args, **kwargs)
+        
 
 class Count(TimeSeriesModel):
     table = 'count'
@@ -69,6 +82,10 @@ class Count(TimeSeriesModel):
     def __init__(self, count = 0, **kwargs):
         self.count = count
         super(Count, self).__init__(**kwargs)
+        
+    @classmethod
+    def get_data(cls, entry):
+        return int(entry['count'])
 
 
 class Average(TimeSeriesModel):
@@ -81,3 +98,9 @@ class Average(TimeSeriesModel):
         
     def __str__(self):
         return self.numerator / self.denominator
+        
+    @classmethod
+    def get_data(cls, entry):
+        if entry['denominator'] == 0:
+            return 0
+        return float(Decimal(entry['numerator']) / Decimal(entry['denominator']))

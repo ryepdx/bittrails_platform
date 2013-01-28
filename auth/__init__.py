@@ -19,7 +19,7 @@ APIS = {'twitter': TwitterOAuth(
             authorize_url = 'https://api.twitter.com/oauth/authenticate',
             consumer_key = TWITTER_KEY,
             consumer_secret = TWITTER_SECRET,
-            aspects = ['post_counts']
+            aspects = ['tweet_counts']
         ),
         'foursquare': FoursquareOAuth(
             name = 'foursquare',
@@ -28,7 +28,7 @@ APIS = {'twitter': TwitterOAuth(
             authorize_url = 'https://foursquare.com/oauth2/authorize',
             consumer_key = FOURSQUARE_CLIENT_ID, 
             consumer_secret = FOURSQUARE_CLIENT_SECRET,
-            aspects = ['post_counts']
+            aspects = ['checkin_counts']
         ),
         'fitbit': OAuth(
             name = 'fitbit',
@@ -47,7 +47,7 @@ APIS = {'twitter': TwitterOAuth(
             authorize_url = 'http://www.last.fm/api/auth/',
             consumer_key = LASTFM_KEY,
             consumer_secret = LASTFM_SECRET,
-            aspects = ['post_counts', 'average_energy']
+            aspects = ['scrobble_counts', 'song_energy_averages']
         ),
         'google_tasks': GoogleOAuth(
             name = 'google_tasks',
@@ -59,10 +59,11 @@ APIS = {'twitter': TwitterOAuth(
             auth_params = {
                 'access_type': 'offline',
                 'response_type': 'code',
-                'scope': 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/tasks.readonly'
+                'scope': 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/tasks.readonly',
+                'approval_prompt': 'force'
             },
             request_params = {'key': GOOGLE_KEY},
-            aspects = ['post_counts']
+            aspects = ['completed_task_counts']
         )
     }
 
