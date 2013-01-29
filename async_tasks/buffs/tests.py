@@ -1,105 +1,71 @@
 import unittest
-import datetime
-from auth.mocks import APIS
+from api import INTERVALS
 from bson import ObjectId
-from async_tasks.datastreams.iterators import TwitterPosts
-from async_tasks.datastreams.handlers import TwitterPostCounter
-from oauth_provider.models import User
+from tasks import CorrelationTask
 
-class TestPosts(object):
-    def test_more_than_zero(self):
-        self.should_have_more_than_zero_posts(
-            self.when_counted(
-                self.given_posts()
-            )
-        )
-        
-    def test_no_duplicate_ids(self):
-        self.should_have_no_duplicate_ids(
-            self.given_posts()
-        )
+class MockModel(object):
+    @classmethod
+    def get_collection(cls, *args, **kwargs):
+        return MockCollection()
     
-    def should_have_more_than_zero_posts(self, num):
-        self.assertTrue(num > 0)    
+    @classmethod
+    def get_data(cls, instance):
+        return instance['data']
+
+class MockCollection(object):
+    def set_data(self, data):
+        self.data = data
     
-    def when_counted(self, posts):
-        return sum(1 for _ in posts)
+    def find(self, *args, **kwargs):
+        return self
+    
+    def sort(self, *args, **kwargs):
+        if hasattr(self, 'data'):
+            return self.data
+        else:
+            return [
+                {'data': 1.0, 'interval_start': '2012-12-01'},
+                {'data': 1.0, 'interval_start': '2012-12-08'},
+                {'data': 1.0, 'interval_start': '2012-12-15'},
+                {'data': 1.0, 'interval_start': '2012-12-22'},
+                {'data': 1.0, 'interval_start': '2012-12-29'},
+                {'data': 1.0, 'interval_start': '2013-01-05'},
+            ]
 
-
-class TestTwitterPosts(TestPosts, unittest.TestCase):
-    def setUp(self):
-        self.user = User(
-            _id = ObjectId('50e3da15ab0ddcff7dd3c187'),
-            external_tokens = { 
-                "twitter" : [ 
-                    "14847576-NtVpk6iONznNMC7AQmYuI138nf9bualJZG0Jpd5Q0", 
-                    "JbmAHGyE2n485Yp7hs6dpTT8eFSn5AFAiiwJ52OHetw"
-                ]
-            }
-        )
-        self.username = 'ryepdx'
-        
-    def given_posts(self):
-        return TwitterPosts(self.user, self.username, api = APIS['twitter'])
-
-
-    def should_have_no_duplicate_ids(self, posts):
-        ids = set()
-        for post in posts:
-            self.assertNotIn(post['id_str'], ids)
-            ids.add(post['id_str'])
-                
-class TestTwitterPostCounter(unittest.TestCase):
-    def setUp(self):
-        self.user = User.find_one(ObjectId("50e3da15ab0ddcff7dd3c187"), as_obj = True)
-        self.username = 'ryepdx'
-        self.counter = TwitterPostCounter(self.user)
-        
-    def given_posts(self):
-        return TwitterPosts(self.user, self.username, api = APIS['twitter'])
-        
-    def when_all_are_counted(self, posts):
-        for post in posts:
-            self.counter.handle(post)
-        return self.counter.counts
-        
-    def should_have_correct_counts(self, counts):
-        self.assertEqual(
-            counts['day:2012-11-10 00:00:00'],
-            {
-                'interval_start': datetime.datetime(2012, 11, 10, 0, 0),
-                'datastream': 'twitter',
-                'interval': 'day',
-                'user_id': self.user._id,
-                'count': 15,
-                'aspect': TwitterPostCounter.aspect
-            })
-
-        self.assertEqual(
-            counts['week:2012-10-29 00:00:00'],
-            {
-                'interval_start': datetime.datetime(2012, 10, 29, 0, 0),
-                'datastream': 'twitter',
-                'interval': 'week',
-                'user_id': self.user._id,
-                'count': 42,
-                'aspect': TwitterPostCounter.aspect
-            })
+class TestCorrelationTask(CorrelationTask):
+    @property
+    def required_aspects(self):
+        return {'google_tasks': ('completed_task', MockModel),
+                 'lastfm': ('song_energy', MockModel)}
+                 
+    def get_template_key(self, correlation):
+        if correlation > 0.5:
+            return 'lastfm_and_google_tasks_positive'
+        elif correlation < -0.5:
+            return 'lastfm_and_google_tasks_negative'
+        else:
+            return 'lastfm_and_google_tasks_neutral'
             
-        self.assertEqual(
-            counts['month:2009-03-01 00:00:00'],
-            {
-                'interval_start': datetime.datetime(2009, 3, 1, 0, 0),
-                'datastream': 'twitter',
-                'interval': 'month',
-                'user_id': self.user._id,
-                'count': 9,
-                'aspect': TwitterPostCounter.aspect
-            })
+    def save_buffs(self, buffs):
+        self.buffs = buffs
+
+class TestCorrelationTaskClass(unittest.TestCase):        
+    def given_a_default_test_task(self):
+        return TestCorrelationTask(
+            {'_id':ObjectId('50e3da15ab0ddcff7dd3c187')},
+            ['google_tasks', 'lastfm'])
+        
+    def when_task_has_been_run(self, task):
+        task.run()
+        return task
+        
+    def should_have_a_positive_buff(self, task):
+        self.assertEqual(len(task.buffs), len(INTERVALS))
+        self.assertEqual(task.buffs[0].strength, 1)
             
     def test_counts(self):
-        self.should_have_correct_counts(
-            self.when_all_are_counted(
-                self.given_posts()
+        self.should_have_a_positive_buff(
+            self.when_task_has_been_run(
+                self.given_a_default_test_task()
             )
         )

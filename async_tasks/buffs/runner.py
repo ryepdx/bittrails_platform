@@ -2,7 +2,7 @@ import inspect
 import .tasks
 from pyechonest import config
 from bson import ObjectId
-from tasks import TwitterTasks, LastfmTasks, GoogleTasks
+from tasks import CorrelationTask
 from oauth_provider.models import User, UID
 from async_tasks.models import LastPostRetrieved
 from celery import Celery
@@ -12,8 +12,7 @@ def run_tasks(APIS):
     config.ECHO_NEST_API_KEY = ECHO_NEST_KEY
     
     celery = Celery('bittrails_tasks', broker='amqp://guest@localhost//')
-
-    task_classes = inspect.getmembers(tasks, inspect.isclass)
+    
     users = User.get_collection().find()
     
     for user in users:
@@ -23,6 +22,8 @@ def run_tasks(APIS):
                      'uid': row['uid']} for row in uids]
         })
         
-        for task_class in task_classes:
+        # Cycle through every class that inherits from CorrelationTask
+        # in tasks.py, instantiate it, and run it.
+        for task_class in CorrelationTask.__subclasses__():
             task = task_class(user, [post['datastream'] for post in posts])
             task.run()
