@@ -1,8 +1,9 @@
 import auth
 import hashlib
-import requests
+import logging
 import json
 import rauth.service
+import requests
 
 from functools import wraps
 from flask_rauth import RauthOAuth1, RauthOAuth2
@@ -21,11 +22,6 @@ def oauth_completed(sender, response, access_token):
     session[TOKENS_KEY][sender.name] = access_token
     
 signals.oauth_completed.connect(oauth_completed)
-
-'''
-TODO: Split the below class into two classes? Right now it mixes the OAuth API
-concept and the Blueprint concept.
-'''
 
 class OAuthBlueprint(Blueprint):
     """
@@ -131,6 +127,8 @@ class LastFmAuthBlueprint(OAuthBlueprint):
 class Datastream(object):
     def __init__(self, aspects = [], **kwargs):
         self.aspects = aspects
+        self._logger = logging.getLogger(
+            __name__ + '.' + self.__class__.__name__)
         super(Datastream, self).__init__(**kwargs)
         
     def get_aspects(self):
@@ -249,14 +247,28 @@ class GoogleOAuth(OAuth2):
             and '_id' in user):
                 user = User.find_one({'_id': user['_id']}, as_obj = True)
                 
-            # Update the user's Google access token and save it.
-            user['external_tokens'][self.name] = (
-                response.content.get('access_token'))
-            user.save()
+            # Was the request for a new token successful?
+            if ('access_token' in response.content
+            and response.content['access_token']):
+                
+                # Update the user's Google access token and save it.
+                user['external_tokens'][self.name] = (
+                    response.content['access_token'])
+                user.save()
+                
+                # Retry the original request with the new token.
+                kwargs['user'] = user
+                response = super(GoogleOAuth, self).request(*args, **kwargs)
+            else:
+                # If the request for a new token was not successful, log
+                # Google's response so we can debug later.
+                self._logger.error(
+                    "Tried to refresh token for user %s. Instead got: %s" % (
+                    user['_id'], response.content)
+                )
             
-            # Retry the original request with the new token.
-            kwargs['user'] = user
-            response = super(GoogleOAuth, self).request(*args, **kwargs)
+            
+            
         
         return response
         

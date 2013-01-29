@@ -6,7 +6,7 @@ from pyechonest.util import EchoNestAPIError
 from api import INTERVALS
 from settings import ECHO_NEST_ID_LIMIT
 from email.utils import parsedate_tz
-from models import Count, Average
+from ..models import Count, Average
 from oauth_provider.models import User
 
 class TimeSeriesHandler(object):
