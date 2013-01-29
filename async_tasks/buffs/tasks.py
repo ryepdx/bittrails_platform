@@ -46,7 +46,7 @@ class CorrelationTask(object):
                              'datastream': datastream,
                              'aspect': aspect,
                              'interval': interval
-                            }).sort({'interval_start': -1})
+                            }).sort('interval_start', -1)
                     ]))
         
         # Okay, now let's look for some correlations!
@@ -91,7 +91,8 @@ class CorrelationTask(object):
                          interval_start = interval_keys[0],
                          interval_end = interval_keys[-1],
                          correlation = correlation,
-                         aspects = self.required_aspects,
+                         aspects = dict([(datastream, aspect) for datastream, (
+                            aspect, _) in self.required_aspects.items()]),
                          template_key = template_key)
                 )
             
