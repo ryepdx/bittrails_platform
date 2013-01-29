@@ -235,11 +235,18 @@ class GoogleOAuth(OAuth2):
             
             user = kwargs.get('user')
             
+            self._logger.info(
+                    "Refreshing expired token for user %s." % user['_id'])
+                                
             # Request a new access token.
-            super(GoogleOAuth, self).post(self.refresh_token_url,
-                data = {'refresh_token': user['refresh_tokens'][self.name],
-                        'grant_type': 'refresh_token'
-                }, user = user)
+            refresh = requests.post(
+                self.refresh_token_url,
+                data = { 'refresh_token': user['refresh_tokens'][self.name],
+                         'grant_type': 'refresh_token',
+                         'client_id': self.consumer_key,
+                         'client_secret': self.consumer_secret }
+            )
+            refresh = json.loads(refresh.content)
             
             # If the user variable is not a User object, retrieve the
             # corresponding object.    
@@ -248,12 +255,10 @@ class GoogleOAuth(OAuth2):
                 user = User.find_one({'_id': user['_id']}, as_obj = True)
                 
             # Was the request for a new token successful?
-            if ('access_token' in response.content
-            and response.content['access_token']):
+            if 'access_token' in refresh and refresh['access_token']:
                 
                 # Update the user's Google access token and save it.
-                user['external_tokens'][self.name] = (
-                    response.content['access_token'])
+                user['external_tokens'][self.name] = refresh['access_token']
                 user.save()
                 
                 # Retry the original request with the new token.
@@ -266,9 +271,6 @@ class GoogleOAuth(OAuth2):
                     "Tried to refresh token for user %s. Instead got: %s" % (
                     user['_id'], response.content)
                 )
-            
-            
-            
         
         return response
         

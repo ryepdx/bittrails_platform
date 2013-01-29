@@ -4,9 +4,9 @@ import logging
 from db.models import Model, mongodb_init
 from oauth_provider.models import User
 from ..models import Count, LastPostRetrieved
-from posts_count import (TwitterPostCounter, LastfmScrobbleCounter,
+from handlers import (TwitterPostCounter, LastfmScrobbleCounter,
     GoogleCompletedTasksCounter, LastfmSongEnergyAverager)
-from posts import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
+from iterators import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
 from auth import APIS
 
 class Tasks(object):

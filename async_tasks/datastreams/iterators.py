@@ -1,4 +1,5 @@
 import json
+import logging
 from oauthlib.common import add_params_to_uri
 from auth import APIS
 from email.utils import parsedate_tz, formatdate, mktime_tz
@@ -12,6 +13,8 @@ class Posts(object):
         self.max_index = 0
         self.index = 0
         self.api = api
+        self._logger = logging.getLogger(
+            __name__ + '.' + self.__class__.__name__)
         
     def __iter__(self):
         return self
@@ -46,7 +49,7 @@ class Posts(object):
         i = 0
         keep_requesting = True
         
-        while keep_requesting:
+        while keep_requesting and self.request_uri:
             posts = self.get_posts_content(self.api.get(add_params_to_uri(
                 self.request_uri, self.params.items()), user = self.user))
             
@@ -165,13 +168,21 @@ class GoogleCompletedTasks(Posts):
         self._latest_position = kwargs.get(
             'latest_position', '1900-01-01T00:00:00Z')
         self._tasklist_ids = self.get_tasklist_ids()
-        self._tasklist_id = self._tasklist_ids.pop()
+        
+        if self._tasklist_ids:
+            self._tasklist_id = self._tasklist_ids.pop()
+        else:
+            self._tasklist_id = None
+            
         self.params = {'show_hidden': True,
                        'completedMin': self._latest_position}
 
     @property
     def request_uri(self):
-        return 'tasks/v1/lists/%s/tasks' % self._tasklist_id
+        if self._tasklist_ids:
+            return 'tasks/v1/lists/%s/tasks' % self._tasklist_id
+        else:
+            return None
         
     @property
     def max_requests(self):
@@ -187,7 +198,15 @@ class GoogleCompletedTasks(Posts):
     def get_tasklist_ids(self):
         result = self.api.get('tasks/v1/users/@me/lists?maxResults=1000000',
                 user = self.user)
-        return [task['id'] for task in result.content['items']]
+        
+        if 'items' in result.content:
+            return [task['id'] for task in result.content['items']]
+        else:
+            self._logger.error("'items' not included in response to request "
+            + ("for Google Task lists for user %s. " % self.user['_id'])
+            + "Returning an empty list instead. "
+            + "Response was: %s" % result.content)
+            return []
 
     def position_gt(self, a, b):
         return parsedate_tz(a) > parsedate_tz(b)

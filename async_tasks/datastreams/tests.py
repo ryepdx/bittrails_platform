@@ -2,8 +2,8 @@ import unittest
 import datetime
 from auth.mocks import APIS
 from bson import ObjectId
-from async_tasks.posts import TwitterPosts
-from async_tasks.posts_count import TwitterPostCounter
+from async_tasks.datastreams.iterators import TwitterPosts
+from async_tasks.datastreams.handlers import TwitterPostCounter
 from oauth_provider.models import User
 
 class TestPosts(object):
@@ -72,7 +72,7 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'interval': 'day',
                 'user_id': self.user._id,
                 'count': 15,
-                'aspect': 'post'
+                'aspect': TwitterPostCounter.aspect
             })
 
         self.assertEqual(
@@ -83,7 +83,7 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'interval': 'week',
                 'user_id': self.user._id,
                 'count': 42,
-                'aspect': 'post'
+                'aspect': TwitterPostCounter.aspect
             })
             
         self.assertEqual(
@@ -94,7 +94,7 @@ class TestTwitterPostCounter(unittest.TestCase):
                 'interval': 'month',
                 'user_id': self.user._id,
                 'count': 9,
-                'aspect': 'post'
+                'aspect': TwitterPostCounter.aspect
             })
             
     def test_counts(self):
