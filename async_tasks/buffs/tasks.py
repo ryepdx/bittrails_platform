@@ -14,8 +14,7 @@ class CorrelationTask(object):
     def __init__(self, user, available_datastreams, logger = None):
         self.user = user
         self.available_datastreams = set(available_datastreams)
-        self._logger = logger if logger else logging.getLogger(
-            __name__ + '.' + self.__class__.__name__)
+        self._logger = logger if logger else logging
         
     @property
     def required_aspects(self):
@@ -73,38 +72,57 @@ class CorrelationTask(object):
                 lambda x, y: x & set(y.keys())), datapoints_list,
                     set(datapoints_list[0].keys())))
             
-                    
             # Make sure we have enough overlapping datapoints
             # to find a correlation.
             if len(interval_keys) >= MINIMUM_DATAPOINTS_FOR_CORRELATION:
-                for datapoints_dict in datapoints_list:
-                    datapoints = []
-                    
-                    for key in interval_keys:
-                        datapoints.append(datapoints_dict[key])
-                        
-                    correlation_matrix.append(datapoints)
+                datapoints = [[] for i in range(0, len(datapoints_list))]
+                buff_start = None
+                buff_template = None
                 
-                # correlation_matrix should be a list of lists of datapoint values.
-                correlation = self.correlate(correlation_matrix)
-                template_key = self.get_template_key(correlation)
+                for key in interval_keys: # Cycle through all common dates.
+                    for i, datapoints_dict in enumerate(datapoints_list):
+                        datapoints[i].append(datapoints_dict[key])
+                    
+                    if len(datapoints[0]) >= MINIMUM_DATAPOINTS_FOR_CORRELATION:
+                        correlation = self.correlate(datapoints)
+                        template_key = self.get_template_key(correlation)
+                        
+                        # Were we trying to walk out a buff when the template
+                        # key went away or changed? Then save the buff.
+                        if buff_template and template_key != buff_template:
+                            buffs.append(
+                                self.create_buff(interval, buff_start, key,
+                                    correlation, template_key)
+                            )
+                            buff_start = None
+                            buff_template = None
+                            datapoints = [[] for i in range(0, len(datapoints_list))]
+                            
+                        # Was there a buff found for this correlation, and if so,
+                        # is it not a buff we're currently walking out?
+                        if template_key and template_key != buff_template:
+                            buff_start = key
+                            buff_template = template_key
                 
                 # If a template key was found, then there was a significant
                 # correlation found. Create a buff.
-                if template_key:
-                    buffs.append(
-                        Buff(user_id = self.user['_id'],
-                             interval = interval,
-                             interval_start = interval_keys[0],
-                             interval_end = interval_keys[-1],
-                             correlation = correlation,
-                             aspects = dict([(datastream, aspect
-                                ) for datastream, (aspect, _
-                                ) in self.required_aspects.items()]),
-                             template_key = template_key)
-                    )
-        
+                if buff_template:
+                    buffs.append(self.create_buff(interval, buff_start,
+                        interval_keys[-1], correlation, buff_template))
+                    
         return buffs
+        
+        
+    def create_buff(self, interval, start, end, correlation, template_key):
+        return Buff(
+            user_id = self.user['_id'],
+            interval = interval,
+            interval_start = start,
+            interval_end = end, 
+            correlation = correlation,
+            aspects = dict([(datastream, aspect) for datastream, (aspect, _
+                ) in self.required_aspects.items()]),
+            template_key = template_key)
         
     def correlate(self, matrix):
         # Return the correlation strength between the two variables.
