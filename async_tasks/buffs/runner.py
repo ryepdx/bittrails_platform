@@ -19,9 +19,9 @@ def run_tasks():
                 '$or': [{'datastream': row['datastream'],
                          'uid': row['uid']} for row in uids]
             })
-            
+            available_datastreams = [post['datastream'] for post in posts]
             # Cycle through every class that inherits from CorrelationTask
             # in tasks.py, instantiate it, and run it.
             for task_class in CorrelationTask.__subclasses__():
-                task = task_class(user, [post['datastream'] for post in posts])
+                task = task_class(user, available_datastreams)
                 task.run()

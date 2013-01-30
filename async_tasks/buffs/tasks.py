@@ -29,11 +29,10 @@ class CorrelationTask(object):
         data = dict([(interval, []) for interval in INTERVALS])
         
         # Do we have the required datastreams to run this correlation?
-        if set(self.required_aspects).issubset(self.available_datastreams):
+        if set(dict(self.required_aspects)).issubset(self.available_datastreams):
             
             # Get the data corresponding to every aspect required.
-            for datastream, (aspect, aspect_class
-            ) in self.required_aspects.items():
+            for (datastream, (aspect, aspect_class)) in self.required_aspects:
                 data_history = dict(
                     [(interval, OrderedDict()) for interval in INTERVALS]) 
                 
@@ -50,7 +49,7 @@ class CorrelationTask(object):
                 # Add the data dictionaries for each interval.
                 for key, item in data_history.items():
                     data[key].append(item)
-                        
+        
         # Okay, now let's look for some correlations!
         self.save_buffs(self.create_buffs(data))
         
@@ -68,9 +67,13 @@ class CorrelationTask(object):
             # TODO: Make missing datapoints imply 0 for continuous datastream
             # aspects like Twitter and Last.fm counts.
             correlation_matrix = []
-            interval_keys = sorted(reduce((
-                lambda x, y: x & set(y.keys())), datapoints_list,
-                    set(datapoints_list[0].keys())))
+            
+            if datapoints_list:
+                interval_keys = sorted(reduce((
+                    lambda x, y: x & set(y.keys())), datapoints_list,
+                        set(datapoints_list[0].keys())))
+            else:
+                interval_keys = []
             
             # Make sure we have enough overlapping datapoints
             # to find a correlation.
@@ -120,8 +123,8 @@ class CorrelationTask(object):
             interval_start = start,
             interval_end = end, 
             correlation = correlation,
-            aspects = dict([(datastream, aspect) for datastream, (aspect, _
-                ) in self.required_aspects.items()]),
+            aspects = dict([(datastream, aspect) for (datastream, (aspect, _
+                )) in self.required_aspects]),
             template_key = template_key)
         
     def correlate(self, matrix):
@@ -131,16 +134,21 @@ class CorrelationTask(object):
         try:
             return numpy.corrcoef(matrix)[-1][0]
         except FloatingPointError as err:
-            self._logger.error(("Error while finding correlations " 
+            self._logger.error(
+                ("Floating point error while finding correlations " 
                 + "for user %s." % self.user['_id']), exc_info = err)
             return 1
+        except Exception as err:
+            self._logger.error(("Error while finding correlations " 
+                + "for user %s." % self.user['_id']), exc_info = err)
+        
         
 class LastFmEnergyAndGoogleTasks(CorrelationTask):
-    
+
     @property
     def required_aspects(self):
-        return {'google_tasks': ('completed_task', Count),
-                 'lastfm': ('song_energy', Average)}
+        return [('google_tasks', ('completed_task', Count)),
+                 ('lastfm', ('song_energy', Average))]
                  
     def get_template_key(self, correlation):
         if correlation > 0.5:
@@ -150,13 +158,13 @@ class LastFmEnergyAndGoogleTasks(CorrelationTask):
         else:
             return 'lastfm_energy_and_google_tasks_neutral'
 
-'''
+
 class LastFmScrobblesAndGoogleTasks(CorrelationTask):
     
     @property
     def required_aspects(self):
-        return {'google_tasks': ('completed_task', Count),
-                 'lastfm': ('scrobble', Count)}
+        return [('google_tasks', ('completed_task', Count)),
+                 ('lastfm', ('scrobble', Count))]
                  
     def get_template_key(self, correlation):
         if correlation > 0.5:
@@ -165,4 +173,19 @@ class LastFmScrobblesAndGoogleTasks(CorrelationTask):
             return 'lastfm_scrobbles_and_google_tasks_negative'
         else:
             return 'lastfm_scrobbles_and_google_tasks_neutral'
-'''
+
+
+class LastFmScrobblesAndLastFmEnergy(CorrelationTask):
+    
+    @property
+    def required_aspects(self):
+        return [('lastfm', ('song_energy', Average)),
+                 ('lastfm', ('scrobble', Count))]
+                 
+    def get_template_key(self, correlation):
+        if correlation > 0.5:
+            return 'lastfm_scrobbles_and_lastfm_energy_positive'
+        elif correlation < -0.5:
+            return 'lastfm_scrobbles_and_lastfm_energy_negative'
+        else:
+            return 'lastfm_scrobbles_and_lastfm_energy_neutral'
