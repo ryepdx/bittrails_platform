@@ -35,22 +35,22 @@ class CorrelationTask(object):
             # Get the data corresponding to every aspect required.
             for datastream, (aspect, aspect_class
             ) in self.required_aspects.items():
+                data_history = dict(
+                    [(interval, OrderedDict()) for interval in INTERVALS]) 
                 
                 # And get the data for that aspect for every interval.
-                # TODO: Limit this query. It'll get huge pretty quickly.
-                # Also, it kinda bothers me that we have a query in a nested
-                # 'for' loop! Seems *super* inefficient.
-                for interval in INTERVALS:
-                    data[interval].append(OrderedDict(
-                        [(row['interval_start'],
-                          aspect_class.get_data(row))
-                            for row in aspect_class.get_collection().find(
-                            {'user_id': self.user['_id'],
-                             'datastream': datastream,
-                             'aspect': aspect,
-                             'interval': interval
-                            }).sort('interval_start', -1)
-                    ]))
+                datapoints = aspect_class.get_collection().find(
+                    {'user_id': self.user['_id'], 'datastream': datastream,
+                     'aspect': aspect}).sort('interval_start', -1)
+                     
+                # Cycle through the datapoints and separate them by interval.
+                for row in datapoints:                        
+                    data_history[row['interval']][row['interval_start']] = (
+                        aspect_class.get_data(row))
+                        
+                # Add the data dictionaries for each interval.
+                for key, item in data_history.items():
+                    data[key].append(item)
                         
         # Okay, now let's look for some correlations!
         self.save_buffs(self.create_buffs(data))
