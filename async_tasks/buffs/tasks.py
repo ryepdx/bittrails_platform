@@ -4,6 +4,7 @@ from api import INTERVALS
 from async_tasks.models import Count, Average
 from buffs.models import Buff
 from collections import OrderedDict
+from .settings import MINIMUM_DATAPOINTS_FOR_CORRELATION
 
 # By default numpy just raises warnings when it encounters problems.
 # I want it to raise exceptions so I can catch and log them.
@@ -32,7 +33,8 @@ class CorrelationTask(object):
         if set(self.required_aspects).issubset(self.available_datastreams):
             
             # Get the data corresponding to every aspect required.
-            for datastream, (aspect, aspect_class) in self.required_aspects.items():
+            for datastream, (aspect, aspect_class
+            ) in self.required_aspects.items():
                 
                 # And get the data for that aspect for every interval.
                 # TODO: Limit this query. It'll get huge pretty quickly.
@@ -40,7 +42,8 @@ class CorrelationTask(object):
                 # 'for' loop! Seems *super* inefficient.
                 for interval in INTERVALS:
                     data[interval].append(OrderedDict(
-                        [(row['interval_start'], aspect_class.get_data(row))
+                        [(row['interval_start'],
+                          aspect_class.get_data(row))
                             for row in aspect_class.get_collection().find(
                             {'user_id': self.user['_id'],
                              'datastream': datastream,
@@ -48,7 +51,7 @@ class CorrelationTask(object):
                              'interval': interval
                             }).sort('interval_start', -1)
                     ]))
-        
+                        
         # Okay, now let's look for some correlations!
         self.save_buffs(self.create_buffs(data))
         
@@ -66,36 +69,41 @@ class CorrelationTask(object):
             # TODO: Make missing datapoints imply 0 for continuous datastream
             # aspects like Twitter and Last.fm counts.
             correlation_matrix = []
-            interval_keys = list(reduce((
+            interval_keys = sorted(reduce((
                 lambda x, y: x & set(y.keys())), datapoints_list,
                     set(datapoints_list[0].keys())))
+            
                     
-            for datapoints_dict in datapoints_list:
-                datapoints = []
+            # Make sure we have enough overlapping datapoints
+            # to find a correlation.
+            if len(interval_keys) >= MINIMUM_DATAPOINTS_FOR_CORRELATION:
+                for datapoints_dict in datapoints_list:
+                    datapoints = []
+                    
+                    for key in interval_keys:
+                        datapoints.append(datapoints_dict[key])
+                        
+                    correlation_matrix.append(datapoints)
                 
-                for key in interval_keys:
-                    datapoints.append(datapoints_dict[key])
-                    
-                correlation_matrix.append(datapoints)
-            
-            # correlation_matrix should be a list of lists of datapoint values.
-            correlation = self.correlate(correlation_matrix)
-            template_key = self.get_template_key(correlation)
-            
-            # If a template key was found, then there was a significant
-            # correlation found. Create a buff.
-            if template_key:
-                buffs.append(
-                    Buff(user_id = self.user['_id'],
-                         interval = interval,
-                         interval_start = interval_keys[0],
-                         interval_end = interval_keys[-1],
-                         correlation = correlation,
-                         aspects = dict([(datastream, aspect) for datastream, (
-                            aspect, _) in self.required_aspects.items()]),
-                         template_key = template_key)
-                )
-            
+                # correlation_matrix should be a list of lists of datapoint values.
+                correlation = self.correlate(correlation_matrix)
+                template_key = self.get_template_key(correlation)
+                
+                # If a template key was found, then there was a significant
+                # correlation found. Create a buff.
+                if template_key:
+                    buffs.append(
+                        Buff(user_id = self.user['_id'],
+                             interval = interval,
+                             interval_start = interval_keys[0],
+                             interval_end = interval_keys[-1],
+                             correlation = correlation,
+                             aspects = dict([(datastream, aspect
+                                ) for datastream, (aspect, _
+                                ) in self.required_aspects.items()]),
+                             template_key = template_key)
+                    )
+        
         return buffs
         
     def correlate(self, matrix):
@@ -118,8 +126,25 @@ class LastFmEnergyAndGoogleTasks(CorrelationTask):
                  
     def get_template_key(self, correlation):
         if correlation > 0.5:
-            return 'lastfm_and_google_tasks_positive'
+            return 'lastfm_energy_and_google_tasks_positive'
         elif correlation < -0.5:
-            return 'lastfm_and_google_tasks_negative'
+            return 'lastfm_energy_and_google_tasks_negative'
         else:
-            return 'lastfm_and_google_tasks_neutral'
+            return 'lastfm_energy_and_google_tasks_neutral'
+
+'''
+class LastFmScrobblesAndGoogleTasks(CorrelationTask):
+    
+    @property
+    def required_aspects(self):
+        return {'google_tasks': ('completed_task', Count),
+                 'lastfm': ('scrobble', Count)}
+                 
+    def get_template_key(self, correlation):
+        if correlation > 0.5:
+            return 'lastfm_scrobbles_and_google_tasks_positive'
+        elif correlation < -0.5:
+            return 'lastfm_scrobbles_and_google_tasks_negative'
+        else:
+            return 'lastfm_scrobbles_and_google_tasks_neutral'
+'''

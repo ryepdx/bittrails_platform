@@ -1,12 +1,10 @@
 import inspect
 import tasks
-from pyechonest import config
 from bson import ObjectId
 from tasks import CorrelationTask
 from oauth_provider.models import User, UID
 from async_tasks.models import LastPostRetrieved
 from celery import Celery
-from settings import ECHO_NEST_KEY
 
 def run_tasks():
     celery = Celery('bittrails_tasks', broker='amqp://guest@localhost//')
