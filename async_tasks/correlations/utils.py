@@ -40,17 +40,10 @@ def gatekeeper_func(threshold):
     threshold_num = Decimal(threshold[1:])
         
     if threshold[0] == '<':
-        def lt_gatekeeper(correlation):
-            return threshold if correlation < threshold_num else None
-            
-        return lt_gatekeeper
+        return (lambda x: threshold if x < threshold_num else None)
         
     elif threshold[0] == '>':
-        def gt_gatekeeper(correlation):
-            return threshold if correlation > threshold_num else None
-            
-        return gt_gatekeeper
-
+        return (lambda x: threshold if x > threshold_num else None)
 
 def find_correlations(user, data, thresholds = None, 
 minimum_datapoints = MINIMUM_DATAPOINTS_FOR_CORRELATION):
