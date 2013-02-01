@@ -1,6 +1,7 @@
 import datetime
 import string
 import json
+from correlations.settings import MINIMUM_DATAPOINTS_FOR_CORRELATION
 from decimal import Decimal
 from db.models import Model, mongodb_init
 from oauthlib.common import add_params_to_uri
@@ -110,12 +111,14 @@ class Correlation(Model):
     
     @mongodb_init
     def __init__(self, user_id = '', interval = '', interval_start = '',
-    interval_end = '', correlation = 0, key = ''):
+    interval_end = '', correlation = 0, key = '',
+    window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION):
         self.user_id = user_id
         self.interval = interval
         self.interval_start = interval_start
         self.interval_end = interval_end
         self.correlation = correlation
+        self.window_size = window_size
         self.key = key
         
     @classmethod
@@ -130,7 +133,3 @@ class Correlation(Model):
                 key.append(datastream + ':' + aspect)
                 
         return ','.join(key)
-        
-    @property
-    def strength(self):
-        return abs(self.correlation)
