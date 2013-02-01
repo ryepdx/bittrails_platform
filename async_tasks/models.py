@@ -104,3 +104,33 @@ class Average(TimeSeriesModel):
         if entry['denominator'] == 0:
             return 0
         return float(Decimal(entry['numerator']) / Decimal(entry['denominator']))
+
+class Correlation(Model):
+    table = "correlation"
+    
+    @mongodb_init
+    def __init__(self, user_id = '', interval = '', interval_start = '',
+    interval_end = '', correlation = 0, key = ''):
+        self.user_id = user_id
+        self.interval = interval
+        self.interval_start = interval_start
+        self.interval_end = interval_end
+        self.correlation = correlation
+        self.key = key
+        
+    @classmethod
+    def generate_key(cls, aspects):
+        '''
+        Takes a dictionary of lists of aspect names with service names as the
+        keys. Returns a key for looking up a correlation.
+        '''
+        key = []
+        for datastream in aspects:
+            for aspect in aspects[datastream]:
+                key.append(datastream + ':' + aspect)
+                
+        return ','.join(key)
+        
+    @property
+    def strength(self):
+        return abs(self.correlation)

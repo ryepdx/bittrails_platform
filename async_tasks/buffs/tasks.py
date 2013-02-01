@@ -1,8 +1,8 @@
 import logging
 import numpy
 from api import INTERVALS
-from async_tasks.models import Count, Average
-from buffs.models import Buff
+import async_tasks.models
+from ..models import Correlation
 from collections import OrderedDict
 from .settings import MINIMUM_DATAPOINTS_FOR_CORRELATION
 
@@ -29,27 +29,31 @@ class CorrelationTask(object):
         data = dict([(interval, []) for interval in INTERVALS])
         
         # Do we have the required datastreams to run this correlation?
-        if set(dict(self.required_aspects)).issubset(self.available_datastreams):
+        if set(self.required_aspects).issubset(self.available_datastreams):
             
             # Get the data corresponding to every aspect required.
-            for (datastream, (aspect, aspect_class)) in self.required_aspects:
-                data_history = dict(
-                    [(interval, OrderedDict()) for interval in INTERVALS]) 
-                
-                # And get the data for that aspect for every interval.
-                datapoints = aspect_class.get_collection().find(
-                    {'user_id': self.user['_id'], 'datastream': datastream,
-                     'aspect': aspect}).sort('interval_start', -1)
-                     
-                # Cycle through the datapoints and separate them by interval.
-                for row in datapoints:                        
-                    data_history[row['interval']][row['interval_start']] = (
-                        aspect_class.get_data(row))
-                        
-                # Add the data dictionaries for each interval.
-                for key, item in data_history.items():
-                    data[key].append(item)
-        
+            for datastream in self.required_aspects:
+                for aspect_string in self.required_aspects[datastream]:
+                    aspect, aspect_class = aspect_string.rsplit('_', 1)
+                    aspect_class = getattr(
+                        async_tasks.models, aspect_class.title())
+                    data_history = dict(
+                        [(interval, OrderedDict()) for interval in INTERVALS]) 
+                    
+                    # And get the data for that aspect for every interval.
+                    datapoints = aspect_class.get_collection().find(
+                        {'user_id': self.user['_id'], 'datastream': datastream,
+                         'aspect': aspect}).sort('interval_start', -1)
+                         
+                    # Cycle through the datapoints and separate them by interval
+                    for row in datapoints:                        
+                        data_history[row['interval']][row['interval_start']] = (
+                            aspect_class.get_data(row))
+                            
+                    # Add the data dictionaries for each interval.
+                    for key, item in data_history.items():
+                        data[key].append(item)
+            
         # Okay, now let's look for some correlations!
         self.save_buffs(self.create_buffs(data))
         
@@ -88,10 +92,12 @@ class CorrelationTask(object):
                     
                     # Make sure there are enough datapoints in our sliding
                     # window to find a correlation.
-                    if len(datapoints_list[0]) >= MINIMUM_DATAPOINTS_FOR_CORRELATION:
+                    if len(datapoints_list[0]
+                    ) >= MINIMUM_DATAPOINTS_FOR_CORRELATION:
                         last_correlation = correlation
                         correlation = self.correlate(
-                            [datapoint.values() for datapoint in datapoints_list])
+                            [datapoint.values(
+                            ) for datapoint in datapoints_list])
                         template_key = self.get_template_key(correlation)
                         
                         # Didn't find a correlation and we're not carrying
@@ -124,8 +130,6 @@ class CorrelationTask(object):
                             # Either way, update buff_template.
                             buff_template = template_key
                 
-                    print datapoints_list[0].keys()[0], datapoints_list[0].keys()[-1]
-                    
                 # If a template key was found, then there was a significant
                 # correlation found. Create a buff.
                 if buff_template:
@@ -137,15 +141,14 @@ class CorrelationTask(object):
         
         
     def create_buff(self, interval, start, end, correlation, template_key):
-        return Buff(
+        return Correlation(
             user_id = self.user['_id'],
             interval = interval,
             interval_start = start,
             interval_end = end, 
             correlation = correlation,
-            aspects = dict([(datastream, aspect) for (datastream, (aspect, _
-                )) in self.required_aspects]),
-            template_key = template_key)
+            key = Correlation.generate_key(self.required_aspects)
+        )
         
     def correlate(self, matrix):
         # Return the correlation strength between the two variables.
@@ -167,8 +170,8 @@ class LastFmEnergyAndGoogleTasks(CorrelationTask):
 
     @property
     def required_aspects(self):
-        return [('google_tasks', ('completed_task', Count)),
-                 ('lastfm', ('song_energy', Average))]
+        return {'google_tasks': ['completed_task_count'],
+                 'lastfm': ['song_energy_average']}
                  
     def get_template_key(self, correlation):
         if correlation > 0.5:
@@ -184,8 +187,8 @@ class LastFmScrobblesAndGoogleTasks(CorrelationTask):
     
     @property
     def required_aspects(self):
-        return [('google_tasks', ('completed_task', Count)),
-                 ('lastfm', ('scrobble', Count))]
+        return {'google_tasks': ['completed_task_count'],
+                 'lastfm': ['scrobble_count']}
                  
     def get_template_key(self, correlation):
         if correlation > 0.5:
@@ -200,8 +203,7 @@ class LastFmScrobblesAndLastFmEnergy(CorrelationTask):
     
     @property
     def required_aspects(self):
-        return [('lastfm', ('song_energy', Average)),
-                 ('lastfm', ('scrobble', Count))]
+        return {'lastfm': ['song_energy_average', 'scrobble_count']}
                  
     def get_template_key(self, correlation):
         if correlation > 0.5:

@@ -12,7 +12,7 @@ from views_funcs import get_service_data_func, passthrough
 
 app = Blueprint('api', __name__)
 
-@app.route('/correlate')
+@app.route('/bittrails/correlate/<service1>/<aspect1>_<model_name1>/with/<service2>/<aspect2>_<model_name2>/by/<interval>')
 def correlate():
     date_format = '%Y-%m-%d %H'
     datastreams = {}
