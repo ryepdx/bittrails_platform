@@ -38,16 +38,17 @@ def get_matrix_for_correlation(user, required_aspects):
 
 def gatekeeper_func(threshold):
     threshold_num = Decimal(threshold[1:])
-    
-    def lt_gatekeeper(correlation):
-        return threshold if correlation < threshold_num else None
-    
-    def gt_gatekeeper(correlation):
-        return threshold if correlation > threshold_num else None
         
     if threshold[0] == '<':
+        def lt_gatekeeper(correlation):
+            return threshold if correlation < threshold_num else None
+            
         return lt_gatekeeper
-    else:
+        
+    elif threshold[0] == '>':
+        def gt_gatekeeper(correlation):
+            return threshold if correlation > threshold_num else None
+            
         return gt_gatekeeper
 
 
