@@ -56,14 +56,10 @@ class TestCorrelationTask(CorrelationTask):
     def required_aspects(self):
         return {'google_tasks': ('completed_task', MockModel),
                  'lastfm': ('song_energy', MockModel)}
-                 
-    def get_template_key(self, correlation):
-        if correlation > 0.5:
-            return 'lastfm_and_google_tasks_positive'
-        elif correlation < -0.5:
-            return 'lastfm_and_google_tasks_negative'
-        else:
-            return 'lastfm_and_google_tasks_neutral'
+            
+    @property
+    def thresholds(self):
+        return ['> 0.5', '< -0.5', '> -0.5']
             
     def save_buffs(self, buffs):
         self.buffs = buffs
