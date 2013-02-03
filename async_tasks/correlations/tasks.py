@@ -11,11 +11,13 @@ numpy.seterr(all='raise')
 
 class CorrelationTask(object):
     def __init__(self, user, available_datastreams,
-    window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION, logger = None):
+    window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION, logger = None,
+    use_cache = True):
         self.user = user
         self.available_datastreams = set(available_datastreams)
         self.window_size = window_size
         self.correlations = []
+        self.use_cache = use_cache
         self._logger = logger if logger else logging
         
     @property
@@ -31,7 +33,8 @@ class CorrelationTask(object):
             
             # Okay, now let's look for some correlations!
             finder = CorrelationFinder(self.user, self.required_aspects,
-                window_size = self.window_size, thresholds = self.thresholds)
+                window_size = self.window_size, thresholds = self.thresholds,
+                use_cache = self.use_cache)
             self.correlations = finder.get_correlations()
         
 class LastFmEnergyAndGoogleTasks(CorrelationTask):

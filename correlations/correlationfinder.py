@@ -12,7 +12,7 @@ from constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
 class CorrelationFinder(object):
     def __init__(self, user, aspects, interval_start = None,
     interval_end = None, window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION,
-    thresholds = [], intervals = INTERVALS):
+    thresholds = [], intervals = INTERVALS, use_cache = True):
         self.user = user
         self.aspects = aspects
         self.start = interval_start
@@ -21,24 +21,30 @@ class CorrelationFinder(object):
         self.thresholds = thresholds
         self.gatekeepers = self._create_gatekeepers(thresholds)
         self.intervals = intervals
+        self.use_cache = use_cache
         
     def get_correlations(self):
         results = {}
         correlation_key = self.generate_correlation_key()
         
-        # First find out if we've cached any of these correlations.
-        # We're only interested if we cached a correlation with exactly the
-        # requested parameters beginning on exactly the day requested.
-        # Otherwise all correlations following it could be off, given that
-        # we're starting at a different offset.
-        correlations = self.retrieve_cache(correlation_key)
+        if self.use_cache:
+            # First find out if we've cached any of these correlations.
+            # We're only interested if we cached a correlation with exactly the
+            # requested parameters beginning on exactly the day requested.
+            # Otherwise all correlations following it could be off, given that
+            # we're starting at a different offset.
+            correlations = self.retrieve_cache(correlation_key)
+        else:
+            correlations = dict(
+                [(interval, []) for interval in self.intervals])
         
         # Alright, let's find whatever correlations there are left to find!
         for interval in self.intervals:
             
             # Are there gaps between the end of the cache and the end of the
             # requested timeframe that we need to fill in here?
-            if interval in correlations and correlations[interval]:
+            if (self.use_cache and interval in correlations
+            and correlations[interval]):
                 matrix = self.get_matrix(interval,
                     correlations[interval][-1]['interval_end'], self.end)
             else:
@@ -58,14 +64,15 @@ class CorrelationFinder(object):
         
                 correlations[interval] += results[interval]
         
-                # Cache all the results (except for the last one if the last one
-                # appears to only have had its end date set by virtue of running 
-                # out of data.)
-                if (results[interval] 
-                and results[interval][-1]['interval_end'] == interval_keys[-1]):
-                    results[key].pop()
+                if self.use_cache:
+                    # Cache all the results (except for the last one if the
+                    # last one appears to only have had its end date set by
+                    # virtue of running out of data.)
+                    if (results[interval] 
+                    and results[interval][-1]['interval_end'] == interval_keys[-1]):
+                        results[key].pop()
             
-                self.cache_correlations(results[interval], correlation_key)
+                    self.cache_correlations(results[interval], correlation_key)
             
         return correlations
         

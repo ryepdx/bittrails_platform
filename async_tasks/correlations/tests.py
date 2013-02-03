@@ -52,6 +52,10 @@ class MockCollection2(MockCollection):
             ]
 
 class TestCorrelationTask(CorrelationTask):
+    def __init__(self, *args, **kwargs):
+        kwargs['use_cache'] = False
+        super(TestCorrelationTask, self).__init__(*args, **kwargs)
+        
     @property
     def required_aspects(self):
         return {'google_tasks': [('completed_task', MockModel)],
