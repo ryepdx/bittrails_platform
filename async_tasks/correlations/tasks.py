@@ -2,7 +2,7 @@ import logging
 import numpy
 from correlations.correlationfinder import CorrelationFinder
 from correlations.constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
-from ..models import Correlation
+from ..models import Correlation, Count, Average
 from collections import OrderedDict
 
 # By default numpy just raises warnings when it encounters problems.
@@ -15,6 +15,7 @@ class CorrelationTask(object):
         self.user = user
         self.available_datastreams = set(available_datastreams)
         self.window_size = window_size
+        self.correlations = []
         self._logger = logger if logger else logging
         
     @property
@@ -31,14 +32,14 @@ class CorrelationTask(object):
             # Okay, now let's look for some correlations!
             finder = CorrelationFinder(self.user, self.required_aspects,
                 window_size = self.window_size, thresholds = self.thresholds)
-            finder.get_correlations()
+            self.correlations = finder.get_correlations()
         
 class LastFmEnergyAndGoogleTasks(CorrelationTask):
 
     @property
     def required_aspects(self):
-        return {'google_tasks': ['completed_task_count'],
-                 'lastfm': ['song_energy_average']}
+        return {'google_tasks': [('completed_task', Count)],
+                 'lastfm': [('song_energy', Average)]}
            
     @property
     def thresholds(self):
@@ -49,8 +50,8 @@ class LastFmScrobblesAndGoogleTasks(CorrelationTask):
     
     @property
     def required_aspects(self):
-        return {'google_tasks': ['completed_task_count'],
-                 'lastfm': ['scrobble_count']}
+        return {'google_tasks': [('completed_task' , Count)],
+                 'lastfm': [('scrobble', Count)]}
                  
     @property
     def thresholds(self):
@@ -61,7 +62,7 @@ class LastFmScrobblesAndLastFmEnergy(CorrelationTask):
     
     @property
     def required_aspects(self):
-        return {'lastfm': ['song_energy_average', 'scrobble_count']}
+        return {'lastfm': [('song_energy', Average), ('scrobble', Count)]}
 
     @property
     def thresholds(self):

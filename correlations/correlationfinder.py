@@ -105,9 +105,13 @@ class CorrelationFinder(object):
         keys. Returns a key for looking up a correlation.
         '''
         key = [str(self.start) + ' ' + str(self.window_size)]
-        for datastream in sorted(self.aspects):
-            for aspect in sorted(self.aspects[datastream]):
-                key.append(datastream + ':' + aspect)
+        aspect_names = []
+        for datastream in self.aspects:
+            for aspect in self.aspects[datastream]:
+                aspect_names.append(datastream + ':' + 
+                    utils.aspect_tuple_to_name(aspect))
+                    
+        key += sorted(aspect_names)
                 
         return ','.join(key) + ',' + str(sorted(self.thresholds))
 
@@ -125,11 +129,7 @@ class CorrelationFinder(object):
         
         # Get the data corresponding to every aspect required.
         for datastream in self.aspects:
-            for aspect_string in self.aspects[datastream]:
-                aspect, aspect_class = aspect_string.rsplit('_', 1)
-                aspect_class = getattr(
-                    async_tasks.models, aspect_class.title())
-                
+            for aspect, aspect_class in self.aspects[datastream]:
                 params['datastream'] = datastream
                 params['aspect'] = aspect
                 
@@ -185,7 +185,7 @@ class CorrelationFinder(object):
                             activated_threshold = gatekeeper(correlation)
                         else:
                             break
-                            
+                    
                 except Exception as err:
                     logging.error(("Error while finding correlations " 
                         + "for user %s." % self.user['_id']),

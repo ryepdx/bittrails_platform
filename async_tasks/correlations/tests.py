@@ -54,8 +54,8 @@ class MockCollection2(MockCollection):
 class TestCorrelationTask(CorrelationTask):
     @property
     def required_aspects(self):
-        return {'google_tasks': ('completed_task', MockModel),
-                 'lastfm': ('song_energy', MockModel)}
+        return {'google_tasks': [('completed_task', MockModel)],
+                 'lastfm': [('song_energy', MockModel)]}
             
     @property
     def thresholds(self):
@@ -67,25 +67,27 @@ class TestCorrelationTask(CorrelationTask):
 class TestCorrelationTask2(TestCorrelationTask):
     @property
     def required_aspects(self):
-        return {'google_tasks': ('completed_task', MockModel),
-                 'lastfm': ('song_energy', MockModel)}
+        return {'google_tasks': [('completed_task', MockModel)],
+                 'lastfm': [('song_energy', MockModel)]}
 
 class TestCorrelationTaskClass(unittest.TestCase):        
     def given_a_default_test_task(self):
         return TestCorrelationTask(
             {'_id':ObjectId('50e3da15ab0ddcff7dd3c187')},
-            ['google_tasks', 'lastfm'])
+            ['google_tasks', 'lastfm'],
+            window_size = 3)
         
     def when_task_has_been_run(self, task):
         task.run()
         return task
         
-    def should_have_a_positive_buff(self, task):
-        self.assertEqual(len(task.buffs), len(INTERVALS))
-        self.assertEqual(task.buffs[0].strength, 1)
+    def should_have_a_correlation_of_one(self, task):
+        self.assertEqual(len(task.correlations), len(INTERVALS))
+        for interval, correlation in task.correlations.items():
+            self.assertEqual(correlation[0].correlation, 1)
             
     def test_counts(self):
-        self.should_have_a_positive_buff(
+        self.should_have_a_correlation_of_one(
             self.when_task_has_been_run(
                 self.given_a_default_test_task()
             )
@@ -95,4 +97,5 @@ class TestCorrelationTaskClass2(TestCorrelationTaskClass):
     def given_a_default_test_task(self):
         return TestCorrelationTask2(
             {'_id':ObjectId('50e3da15ab0ddcff7dd3c187')},
-            ['google_tasks', 'lastfm'])
+            ['google_tasks', 'lastfm'],
+            window_size = 3)
