@@ -1,9 +1,13 @@
 import unittest
 import views_funcs
 import datetime
-from bson import ObjectId
-from oauth_provider.models import User
+import correlations.mocks
+
 from async_tasks.datastreams.handlers import TwitterPostCounter
+from bson import ObjectId
+from correlations.constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
+from api.constants import INTERVALS
+from oauth_provider.models import User
 
 class PostsCountTestCase(unittest.TestCase):    
     def setUp(self):
@@ -34,3 +38,37 @@ class IncrementTimeTestCase(unittest.TestCase):
 
     def a_datetime_of(self, year, month, day):
         return datetime.datetime(year, month, day)
+
+
+class GetCorrelationsTestCase(unittest.TestCase):
+    def setUp(self):
+        self.user = User(_id = ObjectId("50e209f8fb5d1b6d96ad37b7"))
+        self.Mockmodel_aspects = {'mockDatastream': 
+            ['song_mockmodel', 'task_mockmodel']}
+        self.Mockmodel2_aspects = {'mockDatastream':
+            ['song_mockmodel2', 'task_mockmodel2']}
+        self.window_size = 3
+            
+    def test_correlations_view_func(self):
+        self.should_have_a_correlation_of_one(
+            self.given_correlations_on_Mockmodel())
+            
+        self.should_have_a_correlation_of_one(
+            self.given_correlations_on_Mockmodel2())
+    
+    def given_correlations_on_Mockmodel(self):
+        return views_funcs.get_correlations(
+            self.user, self.Mockmodel_aspects, None, None,
+            self.window_size, ['> 0.5', '< -0.5'],
+            INTERVALS, model_module = correlations.mocks)
+            
+    def given_correlations_on_Mockmodel2(self):
+        return views_funcs.get_correlations(
+            self.user, self.Mockmodel2_aspects, None, None,
+            self.window_size, ['> 0.5', '< -0.5'],
+            INTERVALS, model_module = correlations.mocks)
+
+    def should_have_a_correlation_of_one(self, correlations):
+        self.assertEqual(len(correlations), len(INTERVALS))
+        for interval, correlation in correlations.items():
+            self.assertEqual(correlation[0]['correlation'], 1)

@@ -10,12 +10,12 @@ from decimal import Decimal
 from constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
 
 class CorrelationFinder(object):
-    def __init__(self, user, aspects, start = None,
+    def __init__(self, user, aspects, aspects_json = None, start = None,
     end = None, window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION,
     thresholds = [], intervals = INTERVALS, use_cache = True):
         self.user = user
         self.aspects = aspects
-        self.aspects_json = dict([(key, 
+        self.aspects_json = aspects_json if aspects_json else dict([(key, 
                 [utils.aspect_tuple_to_name(value) for value in value_list]
             ) for key, value_list in aspects.items()])
         self.start = start
@@ -58,7 +58,7 @@ class CorrelationFinder(object):
             # TODO: Make missing datapoints imply 0 for continuous datastream
             # aspects like Twitter and Last.fm counts.            
             interval_keys = utils.get_intersection_of_keys(matrix)
-            
+
             # Make sure we have enough overlapping datapoints
             # to find a correlation.
             if len(interval_keys) >= self.window_size:
@@ -76,7 +76,7 @@ class CorrelationFinder(object):
                         results[key].pop()
             
                     self.cache_correlations(results[interval], correlation_key)
-            
+                    
         return correlations
         
     # Broke this out into its own function so we can override it for testing.

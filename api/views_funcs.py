@@ -4,6 +4,8 @@ import datetime
 import time
 import collections
 import async_tasks.models
+from correlations import utils
+from correlations.correlationfinder import CorrelationFinder
 from flask import abort, request
 from oauth_provider.models import User, AccessToken, UID
 from oauthlib.common import add_params_to_uri
@@ -81,22 +83,32 @@ def get_service_data_func(user, service, aspect, model_name, param_path):
     
     return json.dumps(data)
     
-def get_correlations(user, aspects, start, end,
-window_size, thresholds, intervals):
+def get_correlations(user, aspects_json, start, end,
+window_size, thresholds, intervals, model_module = async_tasks.models):
     correlations = {}
+    aspect_tuples = {}
     
-    finder = CorrelationFinder(user, aspects,
+    # Create our aspect tuples dictionary for passing on to CorrelationFinder.
+    for key in aspects_json:
+        aspect_tuples[key] = (
+            [utils.aspect_name_to_tuple(aspect, model_module = model_module
+            ) for aspect in aspects_json[key]])
+    
+    finder = CorrelationFinder(user, aspect_tuples,
         start = start, end = end,
         window_size = window_size, thresholds = thresholds,
-        intervals = intervals)
-        
-    for interval, correlation in finder.get_correlations().items():
+        intervals = intervals, aspects_json = aspects_json)
+    
+    # Filter out all the fields we don't want to include
+    # in the returned correlations.
+    for interval, correlation_list in finder.get_correlations().items():
         if interval not in correlations:
             correlations[interval] = []
-            
-        correlations[interval].append(collections.OrderedDict(
-            [(key, correlation[key]) for key in ['interval', 'start', 'end',
-            'correlation', 'aspects']]))
+        
+        for correlation in correlation_list:
+            correlations[interval].append(collections.OrderedDict(
+                [(key, correlation[key]) for key in [
+                'interval', 'start', 'end','correlation', 'aspects']]))
     
     return correlations
 
