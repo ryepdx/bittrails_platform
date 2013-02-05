@@ -3,7 +3,7 @@ import logging
 from pyechonest import song as pyechonest_song
 from pyechonest.util import EchoNestAPIError
 
-from api import INTERVALS
+from api.constants import INTERVALS
 from settings import ECHO_NEST_ID_LIMIT
 from email.utils import parsedate_tz
 from ..models import Count, Average
@@ -30,8 +30,8 @@ class TimeSeriesHandler(object):
                 
         return slots
         
-    def get_interval_key(self, interval, interval_start):
-        return '%s:%s' % (interval, interval_start)
+    def get_interval_key(self, interval, start):
+        return '%s:%s' % (interval, start)
 
 class PostCounter(TimeSeriesHandler):
     aspect = 'post'
@@ -44,14 +44,14 @@ class PostCounter(TimeSeriesHandler):
         date_posted = self.get_datetime(post)
         slots = self.get_timeslots(date_posted, intervals = intervals)
         
-        for interval, interval_start in slots.items():
-            count_key = self.get_interval_key(interval, str(interval_start))
+        for interval, start in slots.items():
+            count_key = self.get_interval_key(interval, str(start))
             
             if count_key not in self.counts:
                 self.counts[count_key] = Count.find_or_create(
                     user_id = self.user['_id'],
                     interval = interval,
-                    interval_start = slots[interval],
+                    start = slots[interval],
                     datastream = self.datastream_name,
                     aspect = self.aspect
                 )
@@ -190,8 +190,8 @@ class LastfmSongEnergyAverager(LastfmScrobbleMixin, TimeSeriesHandler):
         for scrobble in self.scrobbles:
             slots = self.get_timeslots(scrobble['datetime'])
             
-            for interval, interval_start in slots.items():
-                interval_key = self.get_interval_key(interval, interval_start)
+            for interval, start in slots.items():
+                interval_key = self.get_interval_key(interval, start)
                 if interval_key not in averages:
                     
                     # We might be able to make this more efficient if we can
@@ -203,7 +203,7 @@ class LastfmSongEnergyAverager(LastfmScrobbleMixin, TimeSeriesHandler):
                         datastream = self.datastream_name,
                         aspect = self.aspect,
                         interval = interval,
-                        interval_start = interval_start)
+                        start = start)
                 
                 # Unfortunately Echo Nest doesn't know about all the songs a
                 # user may scrobble.

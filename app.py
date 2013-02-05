@@ -18,7 +18,7 @@ def main():
 
     # Register all our routes and blueprints.
     register_auth_blueprints(app)
-    app.register_blueprint(api.views.app, url_prefix = '/api')
+    app.register_blueprint(api.views.app, url_prefix = '/v1')
     app.register_blueprint(oauth_provider.views.app)
     
     # Set up login and registration.

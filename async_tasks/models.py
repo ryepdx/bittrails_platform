@@ -59,14 +59,14 @@ class TimeSeriesModel(AsyncModel):
         return cls.interval_funcs[interval](date_obj)
         
     @mongodb_init
-    def __init__(self, user_id = '', interval = '', interval_start = None,
+    def __init__(self, user_id = '', interval = '', start = None,
     datastream = '', aspect = ''):
         # It's a keyword argument, sure, but it's not optional.
         assert user_id
         
         self.user_id = user_id
         self.interval = interval
-        self.interval_start = interval_start
+        self.start = start
         self.datastream = datastream
         self.aspect = aspect
     
@@ -112,12 +112,13 @@ class Correlation(AsyncModel):
     table = "correlation"
     
     @mongodb_init
-    def __init__(self, user_id = '', interval = '', interval_start = '',
-    interval_end = '', correlation = 0, threshold = '', key = ''):
+    def __init__(self, user_id = '', interval = '', start = '',
+    end = '', correlation = 0, threshold = '', aspects = {}, key = ''):
         self.user_id = user_id
         self.interval = interval
-        self.interval_start = interval_start
-        self.interval_end = interval_end
+        self.start = start
+        self.end = end
         self.correlation = correlation
         self.threshold = threshold
+        self.aspects = aspects
         self.key = key

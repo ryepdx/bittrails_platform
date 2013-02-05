@@ -61,12 +61,12 @@ def get_service_data_func(user, service, aspect, model_name, param_path):
         params.get('as', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
     
     results = model_class.get_collection().find({
-            'interval': interval, 'interval_start': {'$gte': begin, '$lte': end},
+            'interval': interval, 'start': {'$gte': begin, '$lte': end},
             'datastream': service, 'user_id': user['_id'], 'aspect': aspect
-        }).sort('interval_start', direction = pymongo.ASCENDING)
+        }).sort('start', direction = pymongo.ASCENDING)
     
     result_data = dict((
-        (date_format(result['interval_start']), model_class.get_data(result))
+        (date_format(result['start']), model_class.get_data(result))
         for result in results
     ))
     
@@ -81,6 +81,25 @@ def get_service_data_func(user, service, aspect, model_name, param_path):
     
     return json.dumps(data)
     
+def get_correlations(user, aspects, start, end,
+window_size, thresholds, intervals):
+    correlations = {}
+    
+    finder = CorrelationFinder(user, aspects,
+        start = start, end = end,
+        window_size = window_size, thresholds = thresholds,
+        intervals = intervals)
+        
+    for interval, correlation in finder.get_correlations().items():
+        if interval not in correlations:
+            correlations[interval] = []
+            
+        correlations[interval].append(collections.OrderedDict(
+            [(key, correlation[key]) for key in ['interval', 'start', 'end',
+            'correlation', 'aspects']]))
+    
+    return correlations
+
 def passthrough(user, apis, service, endpoint):
     if request.args:
         params = filter(

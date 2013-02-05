@@ -67,7 +67,7 @@ class TestTwitterPostCounter(unittest.TestCase):
         self.assertEqual(
             counts['day:2012-11-10 00:00:00'],
             {
-                'interval_start': datetime.datetime(2012, 11, 10, 0, 0),
+                'start': datetime.datetime(2012, 11, 10, 0, 0),
                 'datastream': 'twitter',
                 'interval': 'day',
                 'user_id': self.user._id,
@@ -78,7 +78,7 @@ class TestTwitterPostCounter(unittest.TestCase):
         self.assertEqual(
             counts['week:2012-10-29 00:00:00'],
             {
-                'interval_start': datetime.datetime(2012, 10, 29, 0, 0),
+                'start': datetime.datetime(2012, 10, 29, 0, 0),
                 'datastream': 'twitter',
                 'interval': 'week',
                 'user_id': self.user._id,
@@ -89,7 +89,7 @@ class TestTwitterPostCounter(unittest.TestCase):
         self.assertEqual(
             counts['month:2009-03-01 00:00:00'],
             {
-                'interval_start': datetime.datetime(2009, 3, 1, 0, 0),
+                'start': datetime.datetime(2009, 3, 1, 0, 0),
                 'datastream': 'twitter',
                 'interval': 'month',
                 'user_id': self.user._id,

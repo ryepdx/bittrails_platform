@@ -1,5 +1,5 @@
 import unittest
-from api import INTERVALS
+from api.constants import INTERVALS
 from bson import ObjectId
 from tasks import CorrelationTask
 
@@ -29,12 +29,12 @@ class MockCollection(object):
             return self.data
         else:
             return [
-                {'data': 1.0, 'interval_start': '2012-12-01'},
-                {'data': 1.0, 'interval_start': '2012-12-08'},
-                {'data': 1.0, 'interval_start': '2012-12-15'},
-                {'data': 1.0, 'interval_start': '2012-12-22'},
-                {'data': 1.0, 'interval_start': '2012-12-29'},
-                {'data': 1.0, 'interval_start': '2013-01-05'},
+                {'data': 1.0, 'start': '2012-12-01'},
+                {'data': 1.0, 'start': '2012-12-08'},
+                {'data': 1.0, 'start': '2012-12-15'},
+                {'data': 1.0, 'start': '2012-12-22'},
+                {'data': 1.0, 'start': '2012-12-29'},
+                {'data': 1.0, 'start': '2013-01-05'},
             ]
 
 class MockCollection2(MockCollection):
@@ -43,12 +43,12 @@ class MockCollection2(MockCollection):
             return self.data
         else:
             return [
-                {'data': 2.0, 'interval_start': '2012-12-01'},
-                {'data': 1.0, 'interval_start': '2012-12-08'},
-                {'data': 4.0, 'interval_start': '2012-12-15'},
-                {'data': 1.0, 'interval_start': '2012-12-22'},
-                {'data': 5.0, 'interval_start': '2012-12-29'},
-                {'data': 3.0, 'interval_start': '2013-01-05'},
+                {'data': 2.0, 'start': '2012-12-01'},
+                {'data': 1.0, 'start': '2012-12-08'},
+                {'data': 4.0, 'start': '2012-12-15'},
+                {'data': 1.0, 'start': '2012-12-22'},
+                {'data': 5.0, 'start': '2012-12-29'},
+                {'data': 3.0, 'start': '2013-01-05'},
             ]
 
 class TestCorrelationTask(CorrelationTask):

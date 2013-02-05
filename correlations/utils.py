@@ -1,3 +1,4 @@
+import json
 import numpy
 import async_tasks.models
 from decimal import Decimal
@@ -5,8 +6,8 @@ from decimal import Decimal
 def create_correlation_json(threshold, interval, start, end, correlation):
     return [threshold,
         {'interval': interval, 
-         'interval_start': start,
-         'interval_end': end,
+         'start': start,
+         'end': end,
          'correlation': correlation
         }]
     

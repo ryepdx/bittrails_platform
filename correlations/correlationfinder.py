@@ -5,18 +5,21 @@ import async_tasks.models
 import utils
 from async_tasks.models import Correlation
 from collections import OrderedDict
-from api import INTERVALS
+from api.constants import INTERVALS
 from decimal import Decimal
 from constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
 
 class CorrelationFinder(object):
-    def __init__(self, user, aspects, interval_start = None,
-    interval_end = None, window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION,
+    def __init__(self, user, aspects, start = None,
+    end = None, window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION,
     thresholds = [], intervals = INTERVALS, use_cache = True):
         self.user = user
         self.aspects = aspects
-        self.start = interval_start
-        self.end = interval_end
+        self.aspects_json = dict([(key, 
+                [utils.aspect_tuple_to_name(value) for value in value_list]
+            ) for key, value_list in aspects.items()])
+        self.start = start
+        self.end = end
         self.window_size = window_size
         self.thresholds = thresholds
         self.gatekeepers = self._create_gatekeepers(thresholds)
@@ -46,7 +49,7 @@ class CorrelationFinder(object):
             if (self.use_cache and interval in correlations
             and correlations[interval]):
                 matrix = self.get_matrix(interval,
-                    correlations[interval][-1]['interval_end'], self.end)
+                    correlations[interval][-1]['end'], self.end)
             else:
                 matrix = self.get_matrix(interval, self.start, self.end)
             
@@ -69,7 +72,7 @@ class CorrelationFinder(object):
                     # last one appears to only have had its end date set by
                     # virtue of running out of data.)
                     if (results[interval] 
-                    and results[interval][-1]['interval_end'] == interval_keys[-1]):
+                    and results[interval][-1]['end'] == interval_keys[-1]):
                         results[key].pop()
             
                     self.cache_correlations(results[interval], correlation_key)
@@ -89,17 +92,17 @@ class CorrelationFinder(object):
         
         has_cache = (self.start == None 
             or async_tasks.models.Correlation.find_one(dict(
-            params.items() + [('interval_start', self.start)])))
+            params.items() + [('start', self.start)])))
         
         if has_cache:
             if self.start:
-                params['interval_start'] = {'$gte': interval_start}
+                params['start'] = {'$gte': start}
         
             if self.end:
-                params['interval_end'] = {'$lte': self.end}
+                params['end'] = {'$lte': self.end}
                 
             cache = [row for row in Correlation.get_collection().find(params
-                ).sort('interval_start', pymongo.ASCENDING)]
+                ).sort('start', pymongo.ASCENDING)]
             
             for row in cache:
                 correlations[row['interval']].append(Correlation(**row))
@@ -122,17 +125,17 @@ class CorrelationFinder(object):
                 
         return ','.join(key) + ',' + str(sorted(self.thresholds))
 
-    def get_matrix(self, interval, interval_start, interval_end):
+    def get_matrix(self, interval, start, end):
         # Create a dictionary of interval keys to dictionaries of
         # datastream keys to empty dictionaries.
         data = []
         params = {'user_id': self.user['_id'], 'interval': interval}
         
-        if interval_start:
-            params['interval_start'] = {'$gte': interval_start}
+        if start:
+            params['start'] = {'$gte': start}
         
-        if interval_end:
-            params['interval_end'] = {'$lte': interval_end}
+        if end:
+            params['end'] = {'$lte': end}
         
         # Get the data corresponding to every aspect required.
         for datastream in self.aspects:
@@ -142,9 +145,9 @@ class CorrelationFinder(object):
                 
                 # And get the data for that aspect for every interval.
                 datapoints = aspect_class.get_collection(
-                    ).find(params).sort('interval_start', pymongo.ASCENDING)
+                    ).find(params).sort('start', pymongo.ASCENDING)
                 
-                data.append(OrderedDict([(row['interval_start'],
+                data.append(OrderedDict([(row['start'],
                     aspect_class.get_data(row)) for row in datapoints]))
 
         return data
@@ -217,9 +220,10 @@ class CorrelationFinder(object):
                         correlations.append(Correlation(
                             user_id = self.user['_id'],
                             threshold = current_threshold,
+                            aspects = self.aspects_json,
                             interval = interval,
-                            interval_start = datapoints_list[0].keys()[0],
-                            interval_end = datapoints_list[0].keys()[-2],
+                            start = datapoints_list[0].keys()[0],
+                            end = datapoints_list[0].keys()[-2],
                             correlation = last_correlation,
                             key = self.generate_correlation_key())
                         )
@@ -238,9 +242,10 @@ class CorrelationFinder(object):
                 Correlation(
                     user_id = self.user['_id'],
                     threshold = current_threshold,
+                    aspects = self.aspects_json,
                     interval = interval,
-                    interval_start = datapoints_list[0].keys()[0],
-                    interval_end = datapoints_list[0].keys()[-2],
+                    start = datapoints_list[0].keys()[0],
+                    end = datapoints_list[0].keys()[-2],
                     correlation = last_correlation,
                     key = self.generate_correlation_key()
                 )

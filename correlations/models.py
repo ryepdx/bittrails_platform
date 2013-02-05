@@ -4,12 +4,12 @@ class Buff(Model):
     table = "buff"
     
     @mongodb_init
-    def __init__(self, user_id = '', interval = '', interval_start = '',
-    interval_end = '', correlation = 0, aspects = {}, template_key = 'default'):
+    def __init__(self, user_id = '', interval = '', start = '',
+    end = '', correlation = 0, aspects = {}, template_key = 'default'):
         self.user_id = user_id
         self.interval = interval
-        self.interval_start = interval_start
-        self.interval_end = interval_end
+        self.start = start
+        self.end = end
         self.correlation = correlation
         self.aspects = aspects
         self.template_key = template_key
@@ -31,8 +31,8 @@ class BuffTemplate(Model):
             return self.text.format(
                 strength = self.buff.strength,
                 interval = self.buff.interval,
-                interval_start = self.buff.interval_start,
-                interval_end = self.buff.interval_end,
+                start = self.buff.start,
+                end = self.buff.end,
                 **self.buff.aspects
             )
         else:
