@@ -83,8 +83,8 @@ def get_service_data_func(user, service, aspect, model_name, param_path):
     
     return json.dumps(data)
     
-def get_correlations(user, aspects_json, start, end,
-window_size, thresholds, intervals, model_module = async_tasks.models):
+def get_correlations(user, aspects_json, start, end, window_size, thresholds,
+intervals, model_module = async_tasks.models, use_cache = True):
     correlations = {}
     aspect_tuples = {}
     
@@ -95,9 +95,9 @@ window_size, thresholds, intervals, model_module = async_tasks.models):
             ) for aspect in aspects_json[key]])
     
     finder = CorrelationFinder(user, aspect_tuples,
-        start = start, end = end,
-        window_size = window_size, thresholds = thresholds,
-        intervals = intervals, aspects_json = aspects_json)
+        start = start, end = end, window_size = window_size,
+        thresholds = thresholds, intervals = intervals,
+        aspects_json = aspects_json, use_cache = use_cache)
     
     # Filter out all the fields we don't want to include
     # in the returned correlations.

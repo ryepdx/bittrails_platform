@@ -60,13 +60,13 @@ class GetCorrelationsTestCase(unittest.TestCase):
         return views_funcs.get_correlations(
             self.user, self.Mockmodel_aspects, None, None,
             self.window_size, ['> 0.5', '< -0.5'],
-            INTERVALS, model_module = correlations.mocks)
+            INTERVALS, model_module = correlations.mocks, use_cache = False)
             
     def given_correlations_on_Mockmodel2(self):
         return views_funcs.get_correlations(
             self.user, self.Mockmodel2_aspects, None, None,
             self.window_size, ['> 0.5', '< -0.5'],
-            INTERVALS, model_module = correlations.mocks)
+            INTERVALS, model_module = correlations.mocks, use_cache = False)
 
     def should_have_a_correlation_of_one(self, correlations):
         self.assertEqual(len(correlations), len(INTERVALS))
