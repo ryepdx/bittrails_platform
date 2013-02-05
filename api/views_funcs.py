@@ -9,6 +9,7 @@ from correlations.correlationfinder import CorrelationFinder
 from flask import abort, request
 from oauth_provider.models import User, AccessToken, UID
 from oauthlib.common import add_params_to_uri
+from auth import APIS
 
 OAUTH_PARAMS = [
     'oauth_version', 'oauth_token', 'oauth_nonce', 'oauth_timestamp',
@@ -61,7 +62,7 @@ def get_service_data_func(user, service, aspect, model_name, param_path):
     end = params.get('to', now)
     date_format = DATE_FORMATS.get(
         params.get('as', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
-    
+
     results = model_class.get_collection().find({
             'interval': interval, 'start': {'$gte': begin, '$lte': end},
             'datastream': service, 'user_id': user['_id'], 'aspect': aspect

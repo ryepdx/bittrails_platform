@@ -129,14 +129,15 @@ def find_correlations():
     # Wrap our return function in the appropriate realm checks.
     protected_func = (lambda user: json.dumps(
         get_correlations(user, aspects, start, end, window_size,
-        thresholds, intervals), cls = correlations.jsonencoder.JSONEncoder))
+        thresholds, intervals, use_cache = False),
+        cls = correlations.jsonencoder.JSONEncoder))
     for datastream in aspects.keys():
         protected_funct = PROVIDER.require_oauth(
             realm = datastream)(protected_func)
             
     return decorators.provide_oauth_user(protected_func)()
     
-@app.route('/<service>/<aspect>_<model_name>s/<path:param_path>')
+@app.route('/<service>/<aspect>_<model_name>/<path:param_path>')
 def get_service_data(service, aspect, model_name, param_path):
     return decorators.provide_oauth_user(
             PROVIDER.require_oauth(realm = service)(get_service_data_func)
