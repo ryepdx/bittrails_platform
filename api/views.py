@@ -137,11 +137,11 @@ def find_correlations():
             
     return decorators.provide_oauth_user(protected_func)()
     
-@app.route('/<service>/<aspect>_<model_name>/<path:param_path>')
-def get_service_data(service, aspect, model_name, param_path):
+@app.route('/<service>/<aspect>_<model_name>.json')
+def get_service_data(service, aspect, model_name):
     return decorators.provide_oauth_user(
             PROVIDER.require_oauth(realm = service)(get_service_data_func)
-        )(service, aspect, model_name, param_path)
+        )(service, aspect, model_name, request)
         
 
 def register_apis(apis):

@@ -42,12 +42,7 @@ def increment_time(datetime_obj, interval_name):
             
     return datetime_obj
 
-def get_service_data_func(user, service, aspect, model_name, param_path):        
-    param_list = param_path.split('/')
-    params = dict(
-        [(param_list[i*2], param_list[(i*2)+1])
-         for i in range(0, len(param_list)/2)])
-    
+def get_service_data_func(user, service, aspect, model_name, request):        
     if hasattr(async_tasks.models, model_name.title()):
         model_class = getattr(async_tasks.models, model_name.title())
     else:
@@ -55,13 +50,13 @@ def get_service_data_func(user, service, aspect, model_name, param_path):
     
     now = datetime.datetime.utcnow()
     now = datetime.datetime(now.year, now.month, now.day)
-    interval = params.get('by', 'week')
+    interval = request.args.get('by', 'week')
     
-    begin = model_class.get_start_of(interval, params.get(
+    begin = model_class.get_start_of(interval, request.args.get(
         'from', (now - datetime.timedelta(days=30))))
-    end = params.get('to', now)
+    end = request.args.get('to', now)
     date_format = DATE_FORMATS.get(
-        params.get('as', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
+        request.args.get('as', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
 
     results = model_class.get_collection().find({
             'interval': interval, 'start': {'$gte': begin, '$lte': end},
