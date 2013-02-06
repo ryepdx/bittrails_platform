@@ -50,13 +50,13 @@ def get_service_data_func(user, service, aspect, model_name, request):
     
     now = datetime.datetime.utcnow()
     now = datetime.datetime(now.year, now.month, now.day)
-    interval = request.args.get('by', 'week')
+    interval = request.args.get('interval', 'week')
     
     begin = model_class.get_start_of(interval, request.args.get(
-        'from', (now - datetime.timedelta(days=30))))
-    end = request.args.get('to', now)
+        'start', (now - datetime.timedelta(days=30))))
+    end = request.args.get('end', now)
     date_format = DATE_FORMATS.get(
-        request.args.get('as', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
+        request.args.get('timeformat', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
 
     results = model_class.get_collection().find({
             'interval': interval, 'start': {'$gte': begin, '$lte': end},
