@@ -6,7 +6,7 @@ from pyechonest.util import EchoNestAPIError
 from api.constants import INTERVALS
 from settings import ECHO_NEST_ID_LIMIT
 from email.utils import parsedate_tz
-from ..models import Count, Average
+from ..models import Count, Average, HourCount
 from oauth_provider.models import User
 
 class TimeSeriesHandler(object):
@@ -17,7 +17,7 @@ class TimeSeriesHandler(object):
     
     def get_timeslots(self, datetime_obj, intervals = INTERVALS):
         slots = {
-            #'hour': self.get_hour(datetime_obj),
+            #'hour': Count.get_hour(datetime_obj),
             'day': Count.get_day_start(datetime_obj),
             'week': Count.get_week_start(datetime_obj),
             'month': Count.get_month_start(datetime_obj),
@@ -61,14 +61,31 @@ class PostCounter(TimeSeriesHandler):
     def finalize(self):
         for count in self.counts:
             self.counts[count].save()
-
-
-class TwitterPostCounter(PostCounter):
-    aspect = "tweet"
+            
+class PostHourCounter(PostCounter):
+    def get_interval_key(self, interval, start, posted):
+        return '%s:%s:%s' % (interval, start, posted.hour)
     
-    def __init__(self, user):
-        super(TwitterPostCounter, self).__init__('twitter', user)
+    def handle(self, post, intervals = INTERVALS):
+        date_posted = self.get_datetime(post)
+        slots = self.get_timeslots(date_posted, intervals = intervals)
         
+        for interval, start in slots.items():
+            count_key = self.get_interval_key(interval, str(start), date_posted)
+            
+            if count_key not in self.counts:
+                self.counts[count_key] = HourCount.find_or_create(
+                    user_id = self.user['_id'],
+                    interval = interval,
+                    start = slots[interval],
+                    datastream = self.datastream_name,
+                    aspect = self.aspect,
+                    hour = date_posted.hour
+                )
+            
+            self.counts[count_key].count += 1
+
+class TwitterPostMixin(object):
     def get_datetime(self, post):
         try:
             assert 'created_at' in post
@@ -81,6 +98,20 @@ class TwitterPostCounter(PostCounter):
         time_tuple = parsedate_tz(post['created_at'].strip())
         dt = datetime.datetime(*time_tuple[:6])
         return dt - datetime.timedelta(seconds=time_tuple[-1])
+
+class TwitterPostCounter(PostCounter, TwitterPostMixin):
+    aspect = "tweet"
+    
+    def __init__(self, user):
+        super(TwitterPostCounter, self).__init__('twitter', user)
+        
+
+class TwitterPostHourCounter(PostHourCounter, TwitterPostMixin):
+    aspect = "tweet"
+    
+    def __init__(self, user):
+        super(TwitterPostHourCounter, self).__init__('twitter', user)
+
 
 class LastfmScrobbleMixin(object):
     def get_datetime(self, post):
@@ -96,6 +127,12 @@ class LastfmScrobbleCounter(LastfmScrobbleMixin, PostCounter):
     
     def __init__(self, user):
         super(LastfmScrobbleCounter, self).__init__('lastfm', user)
+        
+class LastfmScrobbleHourCounter(LastfmScrobbleMixin, PostHourCounter):
+    aspect = 'scrobble'
+    
+    def __init__(self, user):
+        super(LastfmScrobbleHourCounter, self).__init__('lastfm', user)
 
 class GoogleCompletedTasksCounter(PostCounter):
     aspect = "completed_task"

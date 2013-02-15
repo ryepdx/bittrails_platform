@@ -4,6 +4,9 @@ import datetime
 import time
 import collections
 import async_tasks.models
+import iso8601
+import logging
+import pytz
 from correlations import utils
 from correlations.correlationfinder import CorrelationFinder
 from flask import abort, request
@@ -20,6 +23,8 @@ DATE_FORMATS = {
     'timestamps': (lambda x: int(time.mktime(x.timetuple())))
 }
 
+LOGGER = logging.getLogger(__name__)
+
 def increment_time(datetime_obj, interval_name):
     if interval_name == 'day':
         datetime_obj = datetime_obj + datetime.timedelta(days=1)
@@ -34,48 +39,65 @@ def increment_time(datetime_obj, interval_name):
         if month > 12:
             month = month % 12
             year = year + 1
-        datetime_obj = datetime.datetime(year, month, 1)
+        datetime_obj = datetime.datetime(year, month, 1, tzinfo = datetime_obj.tzinfo)
             
     elif interval_name == 'year':
         datetime_obj = datetime.datetime(
-            datetime_obj.year + 1, 1, 1)
+            datetime_obj.year + 1, 1, 1, tzinfo = datetime_obj.tzinfo)
             
     return datetime_obj
 
-def get_service_data_func(user, service, aspect, model_name, request):        
-    if hasattr(async_tasks.models, model_name.title()):
-        model_class = getattr(async_tasks.models, model_name.title())
+def get_service_data_func(user, service, aspect, model_name, request):
+    model_name = model_name[0].upper() + model_name[1:]       
+    if hasattr(async_tasks.models, model_name):
+        model_class = getattr(async_tasks.models, model_name)
     else:
         abort(404)
     
-    now = datetime.datetime.utcnow()
-    now = datetime.datetime(now.year, now.month, now.day)
+    now = datetime.datetime.now(pytz.utc).replace(
+        hour = 0, minute = 0, second = 0, microsecond = 0)
     interval = request.args.get('interval', 'week')
     
-    begin = model_class.get_start_of(interval, request.args.get(
-        'start', (now - datetime.timedelta(days=30))))
-    end = request.args.get('end', now)
+    start = request.args.get('start')
+    
+    if start:
+        start = iso8601.parse_date(start)
+    else:
+        start = (now - datetime.timedelta(days=30))
+        
+    start = model_class.get_start_of(interval, start)
+        
+    end = request.args.get('end')
+    
+    if end:
+        end = iso8601.parse_date(end)
+    else:
+        end = now
+
     date_format = DATE_FORMATS.get(
         request.args.get('timeformat', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
 
     results = model_class.get_collection().find({
-            'interval': interval, 'start': {'$gte': begin, '$lte': end},
+            'interval': interval, 'start': {'$gte': start, '$lte': end},
             'datastream': service, 'user_id': user['_id'], 'aspect': aspect
         }).sort('start', direction = pymongo.ASCENDING)
     
-    result_data = dict((
-        (date_format(result['start']), model_class.get_data(result))
-        for result in results
-    ))
+    result_data = {}
+    for result in results:
+        result_start = date_format(result['start'])
+        if result_start not in result_data:
+            result_data[result_start] = []
+                
+        result_data[result_start].append(model_class.get_data(result))
     
     # Modify so that it returns entries for the last few intervals,
     # rather than the last few entries.
     data = collections.OrderedDict()
 
-    while begin < end:
-        key = date_format(begin)
+    while start < end:
+        key = date_format(start)
         data[key] = result_data.get(key, 0)
-        begin = increment_time(begin, interval)    
+        start = increment_time(start, interval)    
     
     return json.dumps(data)
     

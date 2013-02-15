@@ -30,12 +30,15 @@ class TimeSeriesModel(AsyncModel):
     
     interval_funcs = {
             'day': lambda date_obj: datetime.datetime(
-                date_obj.year, date_obj.month, date_obj.day),
+                date_obj.year, date_obj.month, date_obj.day,
+                tzinfo = date_obj.tzinfo),
             'week': lambda date_obj: datetime.datetime.strptime(
-                date_obj.strftime('%Y %U 1'), '%Y %U %w'),
+                date_obj.strftime('%Y %U 1'), '%Y %U %w').replace(
+                tzinfo = date_obj.tzinfo),
             'month': lambda date_obj: datetime.datetime(
-                date_obj.year, date_obj.month, 1),
-            'year': lambda date_obj: datetime.datetime(date_obj.year, 1, 1)
+                date_obj.year, date_obj.month, 1, tzinfo = date_obj.tzinfo),
+            'year': lambda date_obj: datetime.datetime(
+                date_obj.year, 1, 1,  tzinfo = date_obj.tzinfo)
         }
         
     @classmethod
@@ -87,6 +90,16 @@ class Count(TimeSeriesModel):
     def get_data(cls, entry):
         return int(entry['count'])
 
+class HourCount(Count):
+    table = 'hour_count'
+    
+    def __init__(self, hour = None, **kwargs):
+        self.hour = hour
+        super(HourCount, self).__init__(**kwargs)
+        
+    @classmethod
+    def get_data(cls, entry):
+        return {'hour': int(entry['hour']), 'count': int(entry['count'])}
 
 class Average(TimeSeriesModel):
     table = 'average'

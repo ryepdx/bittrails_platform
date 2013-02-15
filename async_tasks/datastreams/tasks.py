@@ -5,7 +5,8 @@ from db.models import Model, mongodb_init
 from oauth_provider.models import User
 from ..models import Count, LastPostRetrieved
 from handlers import (TwitterPostCounter, LastfmScrobbleCounter,
-    GoogleCompletedTasksCounter, LastfmSongEnergyAverager)
+    GoogleCompletedTasksCounter, LastfmSongEnergyAverager,
+    TwitterPostHourCounter, LastfmScrobbleHourCounter)
 from iterators import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
 from auth import APIS
 
@@ -77,7 +78,8 @@ class TwitterTasks(Tasks):
     def __init__(self, *args, **kwargs):
         super(TwitterTasks, self).__init__(*args, **kwargs)
         self.handlers = [
-            TwitterPostCounter(self.user)
+            TwitterPostCounter(self.user),
+            TwitterPostHourCounter(self.user)
         ]
     
     @property
@@ -94,8 +96,8 @@ class LastfmTasks(Tasks):
         super(LastfmTasks, self).__init__(*args, **kwargs)
         self.handlers = [
             LastfmScrobbleCounter(self.user),
-            #LastfmArtistMoodRanker(self.user),
-            LastfmSongEnergyAverager(self.user)
+#            LastfmSongEnergyAverager(self.user),
+            LastfmScrobbleHourCounter(self.user),
         ]
     
     @property
