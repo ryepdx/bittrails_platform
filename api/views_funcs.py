@@ -82,29 +82,26 @@ def get_service_data_func(user, service, aspect, model_name, request):
             'datastream': service, 'user_id': user['_id'], 'aspect': aspect
         }).sort('start', direction = pymongo.ASCENDING)
     
-    if model_class.dimensionality > 2:
-        result_data = {}
-        for result in results:
-            result_start = date_format(result['start'])
-            if result_start not in result_data:
-                result_data[result_start] = []
-                    
-            result_data[result_start].append(model_class.get_data(result))
+    result_data = collections.OrderedDict()
+    for result in results:
+        result_start = date_format(result['start'])
+        if result_start not in result_data:
+            result_data[result_start] = []
+                
+        result_data[result_start].append(model_class.get_data(result))
+    
+    # Fill in missing datapoints for "continuous" datastreams (like Twitter.)
+    if not model_class.continuous:
+        data = result_data
     else:
-        result_data = dict((
-            (date_format(result['start']), model_class.get_data(result))
-            for result in results
-        ))
-    
-    # Modify so that it returns entries for the last few intervals,
-    # rather than the last few entries.
-    data = collections.OrderedDict()
+        data = collections.OrderedDict()
 
-    while start < end:
-        key = date_format(start)
-        data[key] = result_data.get(key, 0)
-        start = increment_time(start, interval)    
-    
+        while start < end:
+            key = date_format(start)
+            data[key] = result_data.get(key, [dict(
+                [(dimension, 0) for dimension in model_class.dimensions])])
+            start = increment_time(start, interval)    
+        
     return json.dumps(data)
     
 def get_correlations(user, aspects_json, start, end, window_size, thresholds,

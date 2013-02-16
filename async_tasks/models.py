@@ -27,7 +27,7 @@ class LastPostRetrieved(AsyncModel):
 
 class TimeSeriesModel(AsyncModel):
     table = None
-    dimensionality = 2
+    continuous = True
     
     interval_funcs = {
             'day': lambda date_obj: datetime.datetime(
@@ -62,6 +62,11 @@ class TimeSeriesModel(AsyncModel):
     def get_start_of(cls, interval, date_obj):
         return cls.interval_funcs[interval](date_obj)
         
+    @classmethod
+    def get_data(cls, entry):
+        return dict([(dimension, entry[dimension]
+            ) for dimension in cls.dimensions])
+        
     @mongodb_init
     def __init__(self, user_id = '', interval = '', start = None,
     datastream = '', aspect = ''):
@@ -82,29 +87,23 @@ class TimeSeriesModel(AsyncModel):
 
 class Count(TimeSeriesModel):
     table = 'count'
+    dimensions = ['count']
     
     def __init__(self, count = 0, **kwargs):
         self.count = count
         super(Count, self).__init__(**kwargs)
-        
-    @classmethod
-    def get_data(cls, entry):
-        return int(entry['count'])
 
 class HourCount(Count):
     table = 'hour_count'
-    dimensionality = 3
+    dimensions = ['hour', 'count']
     
     def __init__(self, hour = None, **kwargs):
         self.hour = hour
         super(HourCount, self).__init__(**kwargs)
-        
-    @classmethod
-    def get_data(cls, entry):
-        return {'hour': int(entry['hour']), 'count': int(entry['count'])}
 
 class Average(TimeSeriesModel):
     table = 'average'
+    dimensions = ['average']
     
     def __init__(self, numerator = 0, denominator = 0, **kwargs):
         self.numerator = numerator
