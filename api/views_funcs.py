@@ -82,13 +82,19 @@ def get_service_data_func(user, service, aspect, model_name, request):
             'datastream': service, 'user_id': user['_id'], 'aspect': aspect
         }).sort('start', direction = pymongo.ASCENDING)
     
-    result_data = {}
-    for result in results:
-        result_start = date_format(result['start'])
-        if result_start not in result_data:
-            result_data[result_start] = []
-                
-        result_data[result_start].append(model_class.get_data(result))
+    if model_class.dimensionality > 2:
+        result_data = {}
+        for result in results:
+            result_start = date_format(result['start'])
+            if result_start not in result_data:
+                result_data[result_start] = []
+                    
+            result_data[result_start].append(model_class.get_data(result))
+    else:
+        result_data = dict((
+            (date_format(result['start']), model_class.get_data(result))
+            for result in results
+        ))
     
     # Modify so that it returns entries for the last few intervals,
     # rather than the last few entries.
