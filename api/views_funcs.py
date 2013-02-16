@@ -98,8 +98,7 @@ def get_service_data_func(user, service, aspect, model_name, request):
 
         while start < end:
             key = date_format(start)
-            data[key] = result_data.get(key, [dict(
-                [(dimension, 0) for dimension in model_class.dimensions])])
+            data[key] = result_data.get(key, [model_class.get_empty_data()])
             start = increment_time(start, interval)    
         
     return json.dumps(data)

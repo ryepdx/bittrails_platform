@@ -67,6 +67,9 @@ class TimeSeriesModel(AsyncModel):
         return dict([(dimension, entry[dimension]
             ) for dimension in cls.dimensions])
         
+    def get_empty_data(cls):
+        return dict([(dimension, 0) for dimension in cls.dimensions])
+        
     @mongodb_init
     def __init__(self, user_id = '', interval = '', start = None,
     datastream = '', aspect = ''):
