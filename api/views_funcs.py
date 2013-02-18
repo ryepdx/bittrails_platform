@@ -14,6 +14,7 @@ from flask import abort, request
 from oauth_provider.models import User, AccessToken, UID
 from oauthlib.common import add_params_to_uri
 from auth import APIS
+from async_tasks.models import TimeSeriesPath
 
 OAUTH_PARAMS = [
     'oauth_version', 'oauth_token', 'oauth_nonce', 'oauth_timestamp',
@@ -48,6 +49,13 @@ def increment_time(datetime_obj, interval_name):
             
     return datetime_obj
 
+
+def get_children_func(user, parent_path):
+    return json.dumps(['children.json'] + [(path
+        ) for path in TimeSeriesPath.get_collection(
+            ).find({"user_id": user['_id'], "parent_path": parent_path}
+            ).distinct('name')])
+
 def get_service_data_func(user, datastream, aspect, handler_name, request):
     if hasattr(async_tasks.datastreams.handlers, handler_name):
         model_class = getattr(
@@ -56,52 +64,46 @@ def get_service_data_func(user, datastream, aspect, handler_name, request):
         abort(404)
     
     match = json.loads(request.args.get('match', '{}'))
-    dimensions = json.loads(request.args.get('dimensions', 'null'))
+    group_by = json.loads(request.args.get('groupBy', model_class.dimensions))
+    aggregate = json.loads(request.args.get('aggregate', '{}'))
     
     now = datetime.datetime.now(pytz.utc).replace(
         hour = 0, minute = 0, second = 0, microsecond = 0)
     interval = request.args.get('interval', 'week')
     
-    start = request.args.get('start')
-    if start:
-        start = iso8601.parse_date(start)
+    min_date = request.args.get('minDate')
+    if min_date:
+        min_date = iso8601.parse_date(min_date)
     else:
-        start = (now - datetime.timedelta(days=30))        
-    start = model_class.get_start_of(interval, start)
+        min_date = (now - datetime.timedelta(days=30))        
     
-    end = request.args.get('end')
-    if end:
-        end = iso8601.parse_date(end)
+    max_date = request.args.get('maxDate')
+    if max_date:
+        max_date = iso8601.parse_date(max_date)
     else:
-        end = now
+        max_date = now
 
     date_format = DATE_FORMATS.get(
         request.args.get('timeformat', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
 
     match.update(
-        {'start': {'$gte': start, '$lte': end}, 'user_id': user['_id'],
-         'datastream': datastream, 'aspect': aspect})
+        {'posted_date': {'$gte': min_date, '$lte': max_date},
+         'user_id': user['_id'], 'datastream': datastream, 'aspect': aspect})
         
     aggregation = [{'$match': match}]
     
-    grouping = {'_id': {}}
-    if dimensions:
-        for dimension, aggregator in dimensions.items():
-            if aggregator == "identity":
-                grouping['_id'][dimension] = '$'+dimension;
-            else:
-                grouping[dimension] = {'$'+aggregator: '$'+dimension}
-        dimensions = dimensions.keys()
-    else:
-        dimensions = model_class.dimensions
-        for dimension in dimensions:
-            grouping['_id'][dimension] = '$'+dimension;
-
+    grouping = {'_id': dict(
+        [(dimension, '$'+dimension) for dimension in group_by])}
+        
+    # Overwrite any nefarious user input.
     grouping['_id'].update({'start':'$start', 'user_id':'$user_id'})
+        
+    for dimension, aggregator in aggregate.items():
+        grouping[dimension] = {'$'+aggregator: '$'+dimension}
     
     # Append our preprocessor projection to the aggregation functions.
     pre_projection = dict([(dimension, '$_id.' + dimension
-        ) for dimension in grouping['_id'].keys()])
+        ) for dimension in group_by])
     pre_projection['_id'] = 0
     
     post_projection = dict([(dimension, 1) for dimension in dimensions])

@@ -3,10 +3,9 @@ import json
 import logging
 from db.models import Model, mongodb_init
 from oauth_provider.models import User
-from ..models import Count, LastPostRetrieved
-from handlers import (TwitterPostCounter, LastfmScrobbleCounter,
-    GoogleCompletedTasksCounter, LastfmScrobbleEnergy,
-    TwitterTweet, LastfmScrobble)
+from ..models import LastPostRetrieved
+from handlers import (TwitterTweet, LastfmScrobble,
+    GoogleCompletedTask, LastfmScrobbleEnergy)
 from iterators import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
 from auth import APIS
 
@@ -18,8 +17,8 @@ class Tasks(object):
         self.uid = uid
         self.api = api if api else APIS[self.datastream_name]
         self.logger = logger if logger else logging.getLogger(__name__)
-        self.handlers = [
-            handler_class(self.user) for handler_class in self.handler_classes]
+        self.handlers = [handler_class(self.user, self.datastream_name + '/'
+            ) for handler_class in self.handler_classes]
     
     def run(self):
         last_post = LastPostRetrieved.find_or_create(
@@ -89,6 +88,6 @@ class LastfmTasks(Tasks):
     iterator_class = LastfmScrobbles
 
 class GoogleTasks(Tasks):
-    datastream_name = 'google_tasks'
-    handler_classes = [GoogleCompletedTasksCounter]
+    datastream_name = 'google'
+    handler_classes = [GoogleCompletedTask]
     iterator_class = GoogleCompletedTasks

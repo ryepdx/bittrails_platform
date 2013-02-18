@@ -15,9 +15,9 @@ from auth import APIS
 from oauth_provider.models import User, AccessToken
 from oauth_provider.views import PROVIDER
 from async_tasks.models import Correlation
-from api.constants import INTERVALS
 from correlations.constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
-from views_funcs import get_service_data_func, get_correlations, passthrough
+from views_funcs import (get_service_data_func, get_children_func,
+    get_correlations, passthrough)
 
 app = Blueprint('api', __name__)
 
@@ -138,28 +138,19 @@ def find_correlations():
             
     return decorators.provide_oauth_user(protected_func)()
     
-@app.route('/<datastream>/<aspect>.json')
-def get_service_data(datastream, aspect):
-    return decorators.provide_oauth_user(
-            get_service_data_func
-        )(datastream, aspect,
-          datastream.capitalize()
-            + ''.join([piece.capitalize() for piece in aspect.split('_')]),
-          request)
+    
+@app.route('/<path:parent_path>children.json')
+def get_service_data(parent_path):
+    return decorators.provide_oauth_user(get_children_func)(parent_path)
         
 
-@app.route('/datastreams.json')
+@app.route('/children.json')
 def datastreams():
-    datastreams = {}
-    
-    for task_class in async_tasks.datastreams.tasks.Tasks.__subclasses__():
-        datastreams[task_class.datastream_name] = {}
+    # Should eventually get rid of this function and just add top-level path
+    # entries when a user authorizes a new service.
+    return json.dumps(['children.json'] + [(task_class.datastream_name + "/"
+        ) for task_class in async_tasks.datastreams.tasks.Tasks.__subclasses__()])
         
-        for handler_class in task_class.handler_classes:
-            datastreams[task_class.datastream_name][handler_class.aspect] = (
-                handler_class.model_class.dimensions)
-        
-    return json.dumps(datastreams)
 
 def register_apis(apis):
     

@@ -10,11 +10,11 @@ class AsyncModel(Model):
     def get_collection(cls, database = "async_tasks"):
         return super(AsyncModel, cls).get_collection(database = database)
         
-    @classmethod
-    def get_data(cls, entry):
-        raise NotImplemented("Inheriting classes must implement this.")
         
 class LastPostRetrieved(AsyncModel):
+    '''
+    Saves state for the iterators.
+    '''
     table = 'last_post_retrieved'
     do_not_convert = ('post_id',)
     
@@ -25,106 +25,71 @@ class LastPostRetrieved(AsyncModel):
         self.post_id = post_id
 
 
-class TimeSeriesModel(AsyncModel):
-    table = None
-    continuous = True
-    #dimensions = ['interval', 'start']
-    #dimensions = ['interval']
-    dimensions = []
-    extra_dimensions = {}
-    extra_grouping = {}
+class TimeSeriesPath(AsyncModel):
+    table = "timeseries"
     
-    interval_funcs = {
-            'day': lambda date_obj: datetime.datetime(
-                date_obj.year, date_obj.month, date_obj.day,
-                tzinfo = date_obj.tzinfo),
-            'week': lambda date_obj: datetime.datetime.strptime(
-                date_obj.strftime('%Y %U 1'), '%Y %U %w').replace(
-                tzinfo = date_obj.tzinfo),
-            'month': lambda date_obj: datetime.datetime(
-                date_obj.year, date_obj.month, 1, tzinfo = date_obj.tzinfo),
-            'year': lambda date_obj: datetime.datetime(
-                date_obj.year, 1, 1,  tzinfo = date_obj.tzinfo)
-        }
-        
-    @classmethod
-    def get_year_start(cls, date_obj):
-        return cls.get_start_of('year', date_obj)
-
-    @classmethod
-    def get_month_start(cls, date_obj):
-        return cls.get_start_of('month', date_obj)
-
-    @classmethod
-    def get_week_start(cls, date_obj):
-        return cls.get_start_of('week', date_obj)
-
-    @classmethod
-    def get_day_start(cls, date_obj):
-        return cls.get_start_of('day', date_obj)
-
-    @classmethod
-    def get_start_of(cls, interval, date_obj):
-        return cls.interval_funcs[interval](date_obj)
-        
-    @classmethod
-    def get_data(cls, entry):
-        return dict([(dimension, entry[dimension]
-            ) for dimension in cls.dimensions if dimension in entry])
-                
-    @classmethod
-    def get_empty_data(cls, dimensions):
-        return dict([(dimension, 0) for dimension in dimensions])
-        
     @mongodb_init
-    def __init__(self, user_id = '', interval = '', start = None,
-    datastream = '', aspect = ''):
-        # It's a keyword argument, sure, but it's not optional.
+    def __init__(self, user_id = '', parent_path = '', name = ''):
+        # They're keyword arguments, sure, but they're not optional.
         assert user_id
+        assert name
         
         self.user_id = user_id
-        self.interval = interval
-        self.start = start
-        self.datastream = datastream
-        self.aspect = aspect
-    
+        self.name = name
+        self.parent_path = parent_path
+        
+    @property
+    def path(self):
+        return self.parent_path + self.name
+        
+    @property
+    def children(self):
+        return self.get_collection().find({parent_path: self.path})
+        
     def save(self, *args, **kwargs):
-        # No, really. It's not optional.
+        # No, really. it's not optional.
         assert 'user_id' in self and self['user_id']
-        return super(TimeSeriesModel, self).save(*args, **kwargs)
+        return super(TimeSeriesPath, self).save(*args, **kwargs)
+
+   
+class TimeSeriesData(TimeSeriesPath):
+    dimensions = ['year', 'month', 'week', 'day', 'day_of_week', 'hour']
+    
+    @classmethod
+    def find_one(cls, attrs, **kwargs):
+        if 'timestamp' in attrs:
+            attrs['timestamp'] = cls.simplify_timestamp(attrs['timestamp'])
+            
+        return super(TimeSeriesData, cls).find_one(attrs, **kwargs)
+    
+    @classmethod
+    def simplify_timestamp(cls, timestamp):
+        # For now we are roughing up the timestamp's granularity to match the
+        # granularity of what we record. Otherwise we end up with more database
+        # entries than necessary.
+        return timestamp.replace(minute=0, second=0, microsecond=0)
+    
+    @mongodb_init
+    def __init__(self, total = 0, timestamp = None, name = 'total.json', **kwargs):
+        super(TimeSeriesData, self).__init__(name = name, **kwargs)
+        self.timestamp = self.simplify_timestamp(timestamp)
+        self.year = timestamp.year
+        self.month = timestamp.month
+        self.week = timestamp.isocalendar()[1]
+        self.day = timestamp.day
+        self.day_of_week = timestamp.isoweekday()
+        self.hour = timestamp.hour
+        self.total = total
+    
+    @property
+    def path(self):
+        return self.parent_path + 'total.json'
         
-
-class Count(TimeSeriesModel):
-    table = 'count'
-    dimensions = TimeSeriesModel.dimensions + ['count']
-    
-    def __init__(self, count = 0, **kwargs):
-        self.count = count
-        super(Count, self).__init__(**kwargs)
-
-class HourCount(Count):
-    table = 'hour_count'
-    dimensions = Count.dimensions + ['hour']
-    
-    def __init__(self, hour = None, **kwargs):
-        self.hour = hour
-        super(HourCount, self).__init__(**kwargs)
-
-class Average(TimeSeriesModel):
-    table = 'average'
-    dimensions = TimeSeriesModel.dimensions + ['average']
-    extra_grouping = {'num_sum':{'$sum':'$numerator'},
-        'den_sum':{'$sum':'$denominator'}}
-    extra_dimensions = {'average': {'$divide':['$num_sum', '$den_sum']}}
-    
-    def __init__(self, numerator = 0, denominator = 0, **kwargs):
-        self.numerator = numerator
-        self.denominator = denominator
-        super(Average, self).__init__(**kwargs)
+    @property
+    def children(self):
+        return None
         
-    def __str__(self):
-        return self.numerator / self.denominator
-
+        
 class Correlation(AsyncModel):
     '''
     Keeps track of what correlations we've found.
@@ -132,13 +97,13 @@ class Correlation(AsyncModel):
     table = "correlation"
     
     @mongodb_init
-    def __init__(self, user_id = '', interval = '', start = '',
-    end = '', correlation = 0, threshold = '', aspects = {}, key = ''):
+    def __init__(self, user_id = '', dimension = '', start = '',
+    end = '', correlation = 0, threshold = '', paths = {}, key = ''):
         self.user_id = user_id
-        self.interval = interval
+        self.dimension = dimension
         self.start = start
         self.end = end
         self.correlation = correlation
         self.threshold = threshold
-        self.aspects = aspects
-        self.key = key
+        self.paths = paths
+        self.lookup_key = lookup_key # For easy retrieval based on query params.

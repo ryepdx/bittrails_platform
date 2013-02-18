@@ -3,92 +3,58 @@ import logging
 from pyechonest import song as pyechonest_song
 from pyechonest.util import EchoNestAPIError
 
-from api.constants import INTERVALS
 from settings import ECHO_NEST_ID_LIMIT
 from email.utils import parsedate_tz
-from ..models import Count, Average, HourCount
+from ..models import TimeSeriesData, TimeSeriesPath
 from oauth_provider.models import User
 
 class TimeSeriesHandler(object):
-    def __init__(self, datastream_name, user, logger = None):
-        self.user = user
-        self.datastream_name = datastream_name
-        self.logger = logger if logger else logging.getLogger(__name__)
+    model_class = TimeSeriesData
+    handler_classes = []
     
-    def get_timeslots(self, datetime_obj, intervals = INTERVALS):
-        slots = {
-            #'hour': Count.get_hour(datetime_obj),
-            'day': Count.get_day_start(datetime_obj),
-            'week': Count.get_week_start(datetime_obj),
-            'month': Count.get_month_start(datetime_obj),
-            'year': Count.get_year_start(datetime_obj)
-        }
+    def __init__(self, user, parent_path, logger = None):    
+        self.user = user
+        self.parent_path = parent_path
+        self.logger = logger if logger else logging.getLogger(__name__)
         
-        for key in slots.keys():
-            if key not in intervals:
-                del slots[key]
-                
-        return slots
+        # Is there a path to this handler's data in the database?
+        # Create one if not.
+        TimeSeriesPath.find_or_create(user_id = user['_id'],
+            parent_path = parent_path, name = self.path).save()
         
-    def get_interval_key(self, interval, start):
-        return '%s:%s' % (interval, start)
+    
+    def get_accumulator_key(self, timestamp):
+        return timestamp.strftime('%Y-%m-%d %H')
 
-class PostCounter(TimeSeriesHandler):
-    aspect = 'post'
-    model_class = Count
+
+class TotalHandler(TimeSeriesHandler):
+    path = 'posts'
     
     def __init__(self, *args, **kwargs):
-        self.counts = {}
-        super(PostCounter, self).__init__(*args, **kwargs)
+        self.totals = {}
+        super(TotalHandler, self).__init__(*args, **kwargs)
         
-    def handle(self, post, intervals = INTERVALS):
-        date_posted = self.get_datetime(post)
-        slots = self.get_timeslots(date_posted, intervals = intervals)
+    def handle(self, post):
+        timestamp = self.get_datetime(post)
+        total_key = self.get_accumulator_key(timestamp)
         
-        for interval, start in slots.items():
-            count_key = self.get_interval_key(interval, str(start))
+        if total_key not in self.totals:
+            self.totals[total_key] = self.model_class.find_or_create(
+                user_id = self.user['_id'],
+                parent_path = self.parent_path + self.path + "/",
+                timestamp = timestamp
+            )
             
-            if count_key not in self.counts:
-                self.counts[count_key] = model_class.find_or_create(
-                    user_id = self.user['_id'],
-                    interval = interval,
-                    start = slots[interval],
-                    datastream = self.datastream_name,
-                    aspect = self.aspect
-                )
-            
-            self.counts[count_key].count += 1
+        self.totals[total_key].total += 1
 
     def finalize(self):
-        for count in self.counts:
-            self.counts[count].save()
-            
-class PostHourCounter(PostCounter):
-    model_class = HourCount
+        for total in self.totals.values():
+            total.save()
     
-    def get_interval_key(self, interval, start, posted):
-        return '%s:%s:%s' % (interval, start, posted.hour)
     
-    def handle(self, post, intervals = INTERVALS):
-        date_posted = self.get_datetime(post)
-        slots = self.get_timeslots(date_posted, intervals = intervals)
-        
-        for interval, start in slots.items():
-            count_key = self.get_interval_key(interval, str(start), date_posted)
-            
-            if count_key not in self.counts:
-                self.counts[count_key] = model_class.find_or_create(
-                    user_id = self.user['_id'],
-                    interval = interval,
-                    start = slots[interval],
-                    datastream = self.datastream_name,
-                    aspect = self.aspect,
-                    hour = date_posted.hour
-                )
-            
-            self.counts[count_key].count += 1
-
-class TwitterPostMixin(object):
+class TwitterTweet(TotalHandler):
+    path = 'tweets'
+    
     def get_datetime(self, post):
         try:
             assert 'created_at' in post
@@ -99,67 +65,37 @@ class TwitterPostMixin(object):
                 exc_info = err)
             raise
         time_tuple = parsedate_tz(post['created_at'].strip())
-        dt = datetime.datetime(*time_tuple[:6])
-        return dt - datetime.timedelta(seconds=time_tuple[-1])
-
-
-class TwitterPostCounter(PostCounter, TwitterPostMixin):
-    aspect = "tweet_count"
+        return datetime.datetime(*time_tuple[:6])
     
-    def __init__(self, user):
-        super(TwitterPostCounter, self).__init__('twitter', user)
-        
-
-class TwitterTweet(PostHourCounter, TwitterPostMixin):
-    aspect = "tweet"
     
-    def __init__(self, user):
-        super(TwitterPostHourCounter, self).__init__('twitter', user)
-        
-
-class LastfmScrobbleMixin(object):
+class GoogleCompletedTask(TotalHandler):
+    path = 'tasks/completed'
+    
+    def get_datetime(self, post):
+        assert 'completed' in post
+        return iso8601.parse_date(post['completed'])
+    
+    
+class LastfmScrobble(TotalHandler):
+    path = 'scrobbles'
+    
     def get_datetime(self, post):
         assert 'date' in post
         assert 'uts' in post['date']
         time_tuple = datetime.datetime.utcfromtimestamp(
             int(post['date']['uts'].strip())).timetuple()
-        dt = datetime.datetime(*time_tuple[:6])
-        return dt - datetime.timedelta(seconds=time_tuple[-1])
-
-class LastfmScrobbleCounter(LastfmScrobbleMixin, PostCounter):
-    aspect = 'scrobble'
-    
-    def __init__(self, user):
-        super(LastfmScrobbleCounter, self).__init__('lastfm', user)
+        return datetime.datetime(*time_tuple[:6])
         
-class LastfmScrobble(LastfmScrobbleMixin, PostHourCounter):
-    aspect = 'scrobble'
     
-    def __init__(self, user):
-        super(LastfmScrobbleHourCounter, self).__init__('lastfm', user)
-
-class GoogleCompletedTasksCounter(PostCounter):
-    aspect = "completed_task"
+class LastfmScrobbleEnergy(LastfmScrobble):
+    path = LastfmScrobble.path + '/energy' 
     
-    def __init__(self, user):
-        super(GoogleCompletedTasksCounter, self).__init__('google_tasks', user)
-        
-    def get_datetime(self, post):
-        assert 'completed' in post
-        return datetime.datetime.strptime(
-            post['completed'].strip()[0:10], '%Y-%m-%d')
-
-
-class LastfmScrobbleEnergy(LastfmScrobbleMixin, TimeSeriesHandler):
-    aspect = 'scrobble_energy'
-    model_class = Average
-    
-    def __init__(self, user):
-        super(LastfmScrobbleEnergy, self).__init__('lastfm', user)
+    def __init__(self, *args, **kwargs):
+        super(LastfmScrobbleEnergy, self).__init__(*args, **kwargs)
         self.song_ids = []
         self.scrobbles = []
         
-    def handle(self, scrobble, intervals = INTERVALS):
+    def handle(self, scrobble):
         # Last.fm returns the MusicBrainz ID of each song you scrobble.
         if 'mbid' in scrobble and scrobble['mbid']:
             # Echo Nest can use the MusicBrainz ID to look up the audio summary.
@@ -213,48 +149,38 @@ class LastfmScrobbleEnergy(LastfmScrobbleMixin, TimeSeriesHandler):
         return songs
             
     def finalize(self):
-        energy = {}
-        averages = {}
+        energy_lookup = {}
+        energy_objs = {}
         
         songs = self.get_songs(self.song_ids)
         
         # Index energy levels by song and artist for lookup efficiency later.
         for song in songs:
             artist = song.artist_name
-            if artist not in energy:
-                energy[artist] = {}
+            if artist not in energy_lookup:
+                energy_lookup[artist] = {}
                 
-            energy[artist][song.title] = song.audio_summary['energy']
+            energy_lookup[artist][song.title] = song.audio_summary['energy']
             
-        # Go through the scrobbles we summarized earlier and create Average
-        # objects with the total energy for the interval as the numerator and
-        #  the total number of songs for the interval as the denominator.
+        # Go through the scrobbles we summarized earlier and create objects
+        # containing the totals for all the song energies we looked up.
         for scrobble in self.scrobbles:
-            slots = self.get_timeslots(scrobble['datetime'])
+            energy_key = self.get_accumulator_key(scrobble['datetime'])
             
-            for interval, start in slots.items():
-                interval_key = self.get_interval_key(interval, start)
-                if interval_key not in averages:
-                    
-                    # We might be able to make this more efficient if we can
-                    # be assured that users will never scrobble retroactively
-                    # and that we only average on *complete* time periods.
-                    # (E.g., no creating an Average for the month we're in.)
-                    averages[interval_key] = self.model_class.find_or_create(
-                        user_id = self.user['_id'],
-                        datastream = self.datastream_name,
-                        aspect = self.aspect,
-                        interval = interval,
-                        start = start)
-                
-                # Unfortunately Echo Nest doesn't know about all the songs a
-                # user may scrobble.
-                if (scrobble['artist'] in energy
-                and scrobble['track'] in energy[scrobble['artist']]):
-                    averages[interval_key].numerator += (
-                        energy[scrobble['artist']][scrobble['track']])
-                    averages[interval_key].denominator += 1
+            if energy_key not in energy_objs:
+                energy_objs[energy_key] = self.model_class.find_or_create(
+                    user_id = self.user['_id'],
+                    parent_path = self.parent_path + self.path + "/",
+                    timestamp = scrobble['datetime'])
+            
+            # Unfortunately Echo Nest doesn't know about all the songs a
+            # user may scrobble. Make sure we have the energy for the song
+            # before we go trying to add it to our numerator.
+            if (scrobble['artist'] in energy_lookup
+            and scrobble['track'] in energy_lookup[scrobble['artist']]):
+                energy_objs[energy_key].total += (
+                    energy_lookup[scrobble['artist']][scrobble['track']])
                 
         # Save all the averages.
-        for average in averages.values():
-            average.save()
+        for energy_obj in energy_objs.values():
+            energy_obj.save()
