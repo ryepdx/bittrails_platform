@@ -3,10 +3,11 @@ import json
 import datetime
 import time
 import collections
-import async_tasks.models
+import async_tasks.datastreams.handlers
 import iso8601
 import logging
 import pytz
+import bson
 from correlations import utils
 from correlations.correlationfinder import CorrelationFinder
 from flask import abort, request
@@ -47,28 +48,28 @@ def increment_time(datetime_obj, interval_name):
             
     return datetime_obj
 
-def get_service_data_func(user, service, aspect, model_name, request):
-    model_name = model_name[0].upper() + model_name[1:]       
-    if hasattr(async_tasks.models, model_name):
-        model_class = getattr(async_tasks.models, model_name)
+def get_service_data_func(user, datastream, aspect, handler_name, request):
+    if hasattr(async_tasks.datastreams.handlers, handler_name):
+        model_class = getattr(
+            async_tasks.datastreams.handlers, handler_name).model_class
     else:
         abort(404)
+    
+    match = json.loads(request.args.get('match', '{}'))
+    dimensions = json.loads(request.args.get('dimensions', 'null'))
     
     now = datetime.datetime.now(pytz.utc).replace(
         hour = 0, minute = 0, second = 0, microsecond = 0)
     interval = request.args.get('interval', 'week')
     
     start = request.args.get('start')
-    
     if start:
         start = iso8601.parse_date(start)
     else:
-        start = (now - datetime.timedelta(days=30))
-        
+        start = (now - datetime.timedelta(days=30))        
     start = model_class.get_start_of(interval, start)
-        
-    end = request.args.get('end')
     
+    end = request.args.get('end')
     if end:
         end = iso8601.parse_date(end)
     else:
@@ -77,13 +78,55 @@ def get_service_data_func(user, service, aspect, model_name, request):
     date_format = DATE_FORMATS.get(
         request.args.get('timeformat', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
 
-    results = model_class.get_collection().find({
-            'interval': interval, 'start': {'$gte': start, '$lte': end},
-            'datastream': service, 'user_id': user['_id'], 'aspect': aspect
-        }).sort('start', direction = pymongo.ASCENDING)
+    match.update(
+        {'start': {'$gte': start, '$lte': end}, 'user_id': user['_id'],
+         'datastream': datastream, 'aspect': aspect})
+        
+    aggregation = [{'$match': match}]
+    
+    grouping = {'_id': {}}
+    if dimensions:
+        for dimension, aggregator in dimensions.items():
+            if aggregator == "identity":
+                grouping['_id'][dimension] = '$'+dimension;
+            else:
+                grouping[dimension] = {'$'+aggregator: '$'+dimension}
+        dimensions = dimensions.keys()
+    else:
+        dimensions = model_class.dimensions
+        for dimension in dimensions:
+            grouping['_id'][dimension] = '$'+dimension;
+
+    grouping['_id'].update({'start':'$start', 'user_id':'$user_id'})
+    
+    # Append our preprocessor projection to the aggregation functions.
+    pre_projection = dict([(dimension, '$_id.' + dimension
+        ) for dimension in grouping['_id'].keys()])
+    pre_projection['_id'] = 0
+    
+    post_projection = dict([(dimension, 1) for dimension in dimensions])
+    post_projection.update(dict([(dimension, value
+        ) for dimension, value in pre_projection.items() if '_id' not in dimension]))
+        
+    # Append our preprocessor grouping to the aggregation functions.
+    if model_class.extra_grouping:
+        pre_grouping = {'_id': grouping['_id']}
+        pre_grouping.update(model_class.extra_grouping)
+        aggregation.append({'$group': pre_grouping})
+        
+    if model_class.extra_dimensions:
+        pre_projection.update(model_class.extra_dimensions)
+        aggregation.append({'$project': pre_projection})
+    
+    # Okay, now we append the grouping the user requested.
+    aggregation.append({'$group': grouping})
+    aggregation.append({'$project': post_projection})
+    aggregation.append({'$sort': bson.SON([('start', pymongo.ASCENDING)])})
+    results = model_class.get_collection().aggregate(aggregation)
     
     result_data = collections.OrderedDict()
-    for result in results:
+    
+    for result in results['result']:
         result_start = date_format(result['start'])
         if result_start not in result_data:
             result_data[result_start] = []
@@ -98,13 +141,14 @@ def get_service_data_func(user, service, aspect, model_name, request):
 
         while start < end:
             key = date_format(start)
-            data[key] = result_data.get(key, [model_class.get_empty_data()])
-            start = increment_time(start, interval)    
+            data[key] = result_data.get(
+                key, [model_class.get_empty_data(dimensions)])
+            start = increment_time(start, interval)
         
     return json.dumps(data)
     
 def get_correlations(user, aspects_json, start, end, window_size, thresholds,
-intervals, model_module = async_tasks.models, use_cache = True):
+intervals, handler_module = async_tasks.datastreams.handlers, use_cache = True):
     correlations = {}
     aspect_tuples = {}
     

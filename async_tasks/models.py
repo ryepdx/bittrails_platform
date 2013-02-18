@@ -28,6 +28,11 @@ class LastPostRetrieved(AsyncModel):
 class TimeSeriesModel(AsyncModel):
     table = None
     continuous = True
+    #dimensions = ['interval', 'start']
+    #dimensions = ['interval']
+    dimensions = []
+    extra_dimensions = {}
+    extra_grouping = {}
     
     interval_funcs = {
             'day': lambda date_obj: datetime.datetime(
@@ -65,10 +70,11 @@ class TimeSeriesModel(AsyncModel):
     @classmethod
     def get_data(cls, entry):
         return dict([(dimension, entry[dimension]
-            ) for dimension in cls.dimensions])
-        
-    def get_empty_data(cls):
-        return dict([(dimension, 0) for dimension in cls.dimensions])
+            ) for dimension in cls.dimensions if dimension in entry])
+                
+    @classmethod
+    def get_empty_data(cls, dimensions):
+        return dict([(dimension, 0) for dimension in dimensions])
         
     @mongodb_init
     def __init__(self, user_id = '', interval = '', start = None,
@@ -90,7 +96,7 @@ class TimeSeriesModel(AsyncModel):
 
 class Count(TimeSeriesModel):
     table = 'count'
-    dimensions = ['count']
+    dimensions = TimeSeriesModel.dimensions + ['count']
     
     def __init__(self, count = 0, **kwargs):
         self.count = count
@@ -98,7 +104,7 @@ class Count(TimeSeriesModel):
 
 class HourCount(Count):
     table = 'hour_count'
-    dimensions = ['hour', 'count']
+    dimensions = Count.dimensions + ['hour']
     
     def __init__(self, hour = None, **kwargs):
         self.hour = hour
@@ -106,7 +112,10 @@ class HourCount(Count):
 
 class Average(TimeSeriesModel):
     table = 'average'
-    dimensions = ['average']
+    dimensions = TimeSeriesModel.dimensions + ['average']
+    extra_grouping = {'num_sum':{'$sum':'$numerator'},
+        'den_sum':{'$sum':'$denominator'}}
+    extra_dimensions = {'average': {'$divide':['$num_sum', '$den_sum']}}
     
     def __init__(self, numerator = 0, denominator = 0, **kwargs):
         self.numerator = numerator
@@ -115,12 +124,6 @@ class Average(TimeSeriesModel):
         
     def __str__(self):
         return self.numerator / self.denominator
-        
-    @classmethod
-    def get_data(cls, entry):
-        if entry['denominator'] == 0:
-            return 0
-        return float(Decimal(entry['numerator']) / Decimal(entry['denominator']))
 
 class Correlation(AsyncModel):
     '''

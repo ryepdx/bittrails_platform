@@ -35,6 +35,7 @@ class TimeSeriesHandler(object):
 
 class PostCounter(TimeSeriesHandler):
     aspect = 'post'
+    model_class = Count
     
     def __init__(self, *args, **kwargs):
         self.counts = {}
@@ -48,7 +49,7 @@ class PostCounter(TimeSeriesHandler):
             count_key = self.get_interval_key(interval, str(start))
             
             if count_key not in self.counts:
-                self.counts[count_key] = Count.find_or_create(
+                self.counts[count_key] = model_class.find_or_create(
                     user_id = self.user['_id'],
                     interval = interval,
                     start = slots[interval],
@@ -63,6 +64,8 @@ class PostCounter(TimeSeriesHandler):
             self.counts[count].save()
             
 class PostHourCounter(PostCounter):
+    model_class = HourCount
+    
     def get_interval_key(self, interval, start, posted):
         return '%s:%s:%s' % (interval, start, posted.hour)
     
@@ -74,7 +77,7 @@ class PostHourCounter(PostCounter):
             count_key = self.get_interval_key(interval, str(start), date_posted)
             
             if count_key not in self.counts:
-                self.counts[count_key] = HourCount.find_or_create(
+                self.counts[count_key] = model_class.find_or_create(
                     user_id = self.user['_id'],
                     interval = interval,
                     start = slots[interval],
@@ -99,19 +102,20 @@ class TwitterPostMixin(object):
         dt = datetime.datetime(*time_tuple[:6])
         return dt - datetime.timedelta(seconds=time_tuple[-1])
 
+
 class TwitterPostCounter(PostCounter, TwitterPostMixin):
-    aspect = "tweet"
+    aspect = "tweet_count"
     
     def __init__(self, user):
         super(TwitterPostCounter, self).__init__('twitter', user)
         
 
-class TwitterPostHourCounter(PostHourCounter, TwitterPostMixin):
+class TwitterTweet(PostHourCounter, TwitterPostMixin):
     aspect = "tweet"
     
     def __init__(self, user):
         super(TwitterPostHourCounter, self).__init__('twitter', user)
-
+        
 
 class LastfmScrobbleMixin(object):
     def get_datetime(self, post):
@@ -128,7 +132,7 @@ class LastfmScrobbleCounter(LastfmScrobbleMixin, PostCounter):
     def __init__(self, user):
         super(LastfmScrobbleCounter, self).__init__('lastfm', user)
         
-class LastfmScrobbleHourCounter(LastfmScrobbleMixin, PostHourCounter):
+class LastfmScrobble(LastfmScrobbleMixin, PostHourCounter):
     aspect = 'scrobble'
     
     def __init__(self, user):
@@ -146,11 +150,12 @@ class GoogleCompletedTasksCounter(PostCounter):
             post['completed'].strip()[0:10], '%Y-%m-%d')
 
 
-class LastfmSongEnergyAverager(LastfmScrobbleMixin, TimeSeriesHandler):
-    aspect = 'song_energy'
+class LastfmScrobbleEnergy(LastfmScrobbleMixin, TimeSeriesHandler):
+    aspect = 'scrobble_energy'
+    model_class = Average
     
     def __init__(self, user):
-        super(LastfmSongEnergyAverager, self).__init__('lastfm', user)
+        super(LastfmScrobbleEnergy, self).__init__('lastfm', user)
         self.song_ids = []
         self.scrobbles = []
         
@@ -235,7 +240,7 @@ class LastfmSongEnergyAverager(LastfmScrobbleMixin, TimeSeriesHandler):
                     # be assured that users will never scrobble retroactively
                     # and that we only average on *complete* time periods.
                     # (E.g., no creating an Average for the month we're in.)
-                    averages[interval_key] = Average.find_or_create(
+                    averages[interval_key] = self.model_class.find_or_create(
                         user_id = self.user['_id'],
                         datastream = self.datastream_name,
                         aspect = self.aspect,
@@ -250,6 +255,6 @@ class LastfmSongEnergyAverager(LastfmScrobbleMixin, TimeSeriesHandler):
                         energy[scrobble['artist']][scrobble['track']])
                     averages[interval_key].denominator += 1
                 
-        # Save all the Average objects.
+        # Save all the averages.
         for average in averages.values():
             average.save()

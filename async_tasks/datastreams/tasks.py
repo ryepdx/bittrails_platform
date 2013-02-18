@@ -5,17 +5,21 @@ from db.models import Model, mongodb_init
 from oauth_provider.models import User
 from ..models import Count, LastPostRetrieved
 from handlers import (TwitterPostCounter, LastfmScrobbleCounter,
-    GoogleCompletedTasksCounter, LastfmSongEnergyAverager,
-    TwitterPostHourCounter, LastfmScrobbleHourCounter)
+    GoogleCompletedTasksCounter, LastfmScrobbleEnergy,
+    TwitterTweet, LastfmScrobble)
 from iterators import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
 from auth import APIS
 
 class Tasks(object):
+    handler_classes = []
+    
     def __init__(self, user, uid, api = None, logger = None):  
         self.user = user
         self.uid = uid
         self.api = api if api else APIS[self.datastream_name]
         self.logger = logger if logger else logging.getLogger(__name__)
+        self.handlers = [
+            handler_class(self.user) for handler_class in self.handler_classes]
     
     def run(self):
         last_post = LastPostRetrieved.find_or_create(
@@ -75,51 +79,16 @@ class Tasks(object):
         
         
 class TwitterTasks(Tasks):
-    def __init__(self, *args, **kwargs):
-        super(TwitterTasks, self).__init__(*args, **kwargs)
-        self.handlers = [
-            TwitterPostCounter(self.user),
-            TwitterPostHourCounter(self.user)
-        ]
-    
-    @property
-    def iterator_class(self):
-        return TwitterPosts
-        
-    @property
-    def datastream_name(self):
-        return 'twitter'
-
+    datastream_name = 'twitter'
+    handler_classes = [TwitterTweet]
+    iterator_class = TwitterPosts
 
 class LastfmTasks(Tasks):
-    def __init__(self, *args, **kwargs):
-        super(LastfmTasks, self).__init__(*args, **kwargs)
-        self.handlers = [
-            LastfmScrobbleCounter(self.user),
-#            LastfmSongEnergyAverager(self.user),
-            LastfmScrobbleHourCounter(self.user),
-        ]
-    
-    @property
-    def iterator_class(self):
-        return LastfmScrobbles
-        
-    @property
-    def datastream_name(self):
-        return 'lastfm'
-
+    datastream_name = 'lastfm'
+    handler_classes = [LastfmScrobble, LastfmScrobbleEnergy]
+    iterator_class = LastfmScrobbles
 
 class GoogleTasks(Tasks):
-    def __init__(self, *args, **kwargs):
-        super(GoogleTasks, self).__init__(*args, **kwargs)
-        self.handlers = [
-            GoogleCompletedTasksCounter(self.user)
-        ]
-    
-    @property
-    def iterator_class(self):
-        return GoogleCompletedTasks
-        
-    @property
-    def datastream_name(self):
-        return 'google_tasks'
+    datastream_name = 'google_tasks'
+    handler_classes = [GoogleCompletedTasksCounter]
+    iterator_class = GoogleCompletedTasks

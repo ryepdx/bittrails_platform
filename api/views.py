@@ -4,6 +4,7 @@ import json
 import decorators
 import bson
 import correlations.jsonencoder
+import async_tasks.datastreams.tasks
 
 from collections import OrderedDict
 from decimal import Decimal
@@ -137,12 +138,28 @@ def find_correlations():
             
     return decorators.provide_oauth_user(protected_func)()
     
-@app.route('/<service>/<aspect>_<model_name>.json')
-def get_service_data(service, aspect, model_name):
+@app.route('/<datastream>/<aspect>.json')
+def get_service_data(datastream, aspect):
     return decorators.provide_oauth_user(
-            PROVIDER.require_oauth(realm = service)(get_service_data_func)
-        )(service, aspect, model_name, request)
+            get_service_data_func
+        )(datastream, aspect,
+          datastream.capitalize()
+            + ''.join([piece.capitalize() for piece in aspect.split('_')]),
+          request)
         
+
+@app.route('/datastreams.json')
+def datastreams():
+    datastreams = {}
+    
+    for task_class in async_tasks.datastreams.tasks.Tasks.__subclasses__():
+        datastreams[task_class.datastream_name] = {}
+        
+        for handler_class in task_class.handler_classes:
+            datastreams[task_class.datastream_name][handler_class.aspect] = (
+                handler_class.model_class.dimensions)
+        
+    return json.dumps(datastreams)
 
 def register_apis(apis):
     
@@ -151,13 +168,5 @@ def register_apis(apis):
         return decorators.provide_oauth_user(
                 PROVIDER.require_oauth(realm = service)(passthrough)
             )(apis, service, endpoint)
-            
-            
-    @app.route('/datastreams.json')
-    def datastreams():
-        return json.dumps(dict([
-            (key, {'aspects': value.get_aspects()})
-            for key, value in APIS.items()
-        ]))
         
 auth.signals.services_registered.connect(register_apis)

@@ -15,9 +15,17 @@ class CorrelationFinder(object):
     thresholds = [], intervals = INTERVALS, use_cache = True):
         self.user = user
         self.aspects = aspects
+        
+        # Construct a dictionary of the aspects requested for returning
+        # later to the user as JSON data. Having the aspects in this format
+        # isn't very useful for our implementation, but it's very useful to
+        # the user, who will expect the aspects to be expressed in the same
+        # way that the datastreams.json endpoint expresses them, and in the
+        # same way that they are asked to pass them in to Platform.
         self.aspects_json = aspects_json if aspects_json else dict([(key, 
                 [utils.aspect_tuple_to_name(value) for value in value_list]
             ) for key, value_list in aspects.items()])
+            
         self.start = start
         self.end = end
         self.window_size = window_size
@@ -112,7 +120,8 @@ class CorrelationFinder(object):
     def generate_correlation_key(self):
         '''
         Takes a dictionary of lists of aspect names with service names as the
-        keys. Returns a key for looking up a correlation.
+        keys. Returns the value saved in the 'key' field for the correlation
+        using that set of aspects.
         '''
         key = [str(self.start) + ' ' + str(self.window_size)]
         aspect_names = []
@@ -126,8 +135,10 @@ class CorrelationFinder(object):
         return ','.join(key) + ',' + str(sorted(self.thresholds))
 
     def get_matrix(self, interval, start, end):
-        # Create a dictionary of interval keys to dictionaries of
-        # datastream keys to empty dictionaries.
+        '''
+        Create a list of dictionaries, one for each requested aspect,
+        mapping interval start dates to datapoints.
+        '''
         data = []
         params = {'user_id': self.user['_id'], 'interval': interval}
         
