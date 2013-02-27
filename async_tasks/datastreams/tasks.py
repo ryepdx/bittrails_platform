@@ -5,7 +5,7 @@ from db.models import Model, mongodb_init
 from oauth_provider.models import User
 from ..models import LastPostRetrieved
 from handlers import (TwitterTweet, LastfmScrobble,
-    GoogleCompletedTask, LastfmScrobbleEnergy)
+    GoogleCompletedTask, LastfmScrobbleEchonest)
 from iterators import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
 from auth import APIS
 
@@ -84,7 +84,7 @@ class TwitterTasks(Tasks):
 
 class LastfmTasks(Tasks):
     datastream_name = 'lastfm'
-    handler_classes = [LastfmScrobble, LastfmScrobbleEnergy]
+    handler_classes = [LastfmScrobble, LastfmScrobbleEchonest]
     iterator_class = LastfmScrobbles
 
 class GoogleTasks(Tasks):

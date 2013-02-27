@@ -1,3 +1,5 @@
+import collections
+import pytz
 import iso8601
 import auth.signals
 import json
@@ -14,7 +16,7 @@ from flask.ext.login import current_user
 from auth import APIS
 from oauth_provider.models import User, AccessToken
 from oauth_provider.views import PROVIDER
-from async_tasks.models import Correlation
+from async_tasks.models import Correlation, TimeSeriesData
 from correlations.constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
 from views_funcs import (get_service_data_func, get_children_func,
     get_correlations, passthrough)
@@ -50,37 +52,41 @@ def correlation(correlation_id):
 
 @app.route('/correlations.json')
 def find_correlations():
-    start = request.args.get("min_date")
-    end = request.args.get("max_date")
-    intervals = request.args.get("intervals")
+    paths = request.args.get("paths")
     thresholds = request.args.get("thresholds")
-    aspects = request.args.get("aspects")
+    group_by = request.args.get("groupBy")
     window_size = request.args.get(
-        "min_datapoints", MINIMUM_DATAPOINTS_FOR_CORRELATION)
+        "minDatapoints", MINIMUM_DATAPOINTS_FOR_CORRELATION)
+    
+    try:
+        continuous = json.loads(request.args.get("continuous", "false"))
+    except:
+        continuous = False
     
     # Validate start date parameter
-    if start:
+    min_date = request.args.get('minDate')
+    if min_date:
         try:
-            start = iso8601.parse_date(start)
-        except:
-            abort(400)
+            min_date = iso8601.parse_date(min_date)
+        except iso8601.ParseError:
+            min_date = datetime.strptime(
+                min_date, "%Y-%m-%d").replace(tzinfo=pytz.utc)
+        
       
     # Validate end date parameter
-    if end:
+    max_date = request.args.get('maxDate')
+    if max_date:
         try:
-            end = iso8601.parse_date(end)
-        except Exception:
-            abort(400)
+            max_date = iso8601.parse_date(max_date)
+        except iso8601.ParseError:
+            max_date = datetime.strptime(
+                max_date, "%Y-%m-%d").replace(tzinfo=pytz.utc)
+    
         
     # Validate intervals parameter.
-    if intervals:
+    if paths:
         try:
-            intervals = json.loads(intervals)
-            
-            if (not set(intervals).issubset(INTERVALS)
-            or len(intervals) != len(set(intervals))):
-                abort(400)
-                
+            paths = json.loads(paths)
         except:
             abort(400)
     else:
@@ -105,13 +111,9 @@ def find_correlations():
         abort(400)
     
     # Validate aspects parameter.
-    if aspects:
+    if group_by:
         try:
-            aspects = json.loads(aspects)
-            
-            if not set(aspects.keys()).issubset(APIS.keys()):
-                abort(400)
-                
+            group_by = json.loads(group_by)
         except:
             abort(400)
     else:
@@ -126,31 +128,45 @@ def find_correlations():
             
     except:
         abort(400)
+        
+    sort = json.loads(
+        request.args.get('sort', '{"year":1, "month":1, "week":1, "day":1}'),
+        object_pairs_hook = collections.OrderedDict)
     
     # Wrap our return function in the appropriate realm checks.
     protected_func = (lambda user: json.dumps(
-        get_correlations(user, aspects, start, end, window_size,
-        thresholds, intervals, use_cache = False),
+        get_correlations(user, paths, group_by, min_date, max_date, sort,
+        window_size, thresholds, use_cache = False),
         cls = correlations.jsonencoder.JSONEncoder))
-    for datastream in aspects.keys():
-        protected_funct = PROVIDER.require_oauth(
-            realm = datastream)(protected_func)
+    # TODO: Fix realm check.
+    #for datastream in aspects.keys():
+    #    protected_funct = PROVIDER.require_oauth(
+    #        realm = datastream)(protected_func)
             
     return decorators.provide_oauth_user(protected_func)()
+
+@app.route('/<path:path>.json')
+def get_service_data(path):
+    return decorators.provide_oauth_user(
+        get_service_data_func)(path, request)
     
     
 @app.route('/<path:parent_path>children.json')
-def get_service_data(parent_path):
+def get_children(parent_path):
     return decorators.provide_oauth_user(get_children_func)(parent_path)
         
 
 @app.route('/children.json')
-def datastreams():
+def get_top_level_children():
     # Should eventually get rid of this function and just add top-level path
     # entries when a user authorizes a new service.
-    return json.dumps(['children.json'] + [(task_class.datastream_name + "/"
+    return json.dumps(
+        ['children.json', 'groupBy.json'] + [(task_class.datastream_name + "/"
         ) for task_class in async_tasks.datastreams.tasks.Tasks.__subclasses__()])
         
+@app.route('/dimensions.json')
+def dimensions():
+    return json.dumps(TimeSeriesData.dimensions)
 
 def register_apis(apis):
     

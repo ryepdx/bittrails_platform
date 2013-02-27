@@ -1,11 +1,7 @@
-import datetime
-import string
-import json
-from decimal import Decimal
+"""Supporting models for all asynchronous tasks."""
 from db.models import Model, mongodb_init
-from oauthlib.common import add_params_to_uri
 
-class AsyncModel(Model):    
+class AsyncModel(Model):
     @classmethod
     def get_collection(cls, database = "async_tasks"):
         return super(AsyncModel, cls).get_collection(database = database)
@@ -53,7 +49,9 @@ class TimeSeriesPath(AsyncModel):
 
    
 class TimeSeriesData(TimeSeriesPath):
-    dimensions = ['year', 'month', 'week', 'day', 'day_of_week', 'hour']
+    dimensions = ['year', 'month', 'week', 'day', 'day_of_week', 'hour', 
+        'isoyear', 'isoweek', 'isoweekday', 'value']
+    default_group_by = ['year', 'month', 'day']
     
     @classmethod
     def find_one(cls, attrs, **kwargs):
@@ -68,18 +66,22 @@ class TimeSeriesData(TimeSeriesPath):
         # granularity of what we record. Otherwise we end up with more database
         # entries than necessary.
         return timestamp.replace(minute=0, second=0, microsecond=0)
-    
+        
     @mongodb_init
-    def __init__(self, total = 0, timestamp = None, name = 'total.json', **kwargs):
+    def __init__(self, value = 0, timestamp = None, name = 'total.json',
+    **kwargs):
         super(TimeSeriesData, self).__init__(name = name, **kwargs)
+        isocalendar = timestamp.isocalendar()
         self.timestamp = self.simplify_timestamp(timestamp)
         self.year = timestamp.year
         self.month = timestamp.month
-        self.week = timestamp.isocalendar()[1]
+        self.week = int(timestamp.strftime("%W"))
         self.day = timestamp.day
-        self.day_of_week = timestamp.isoweekday()
+        self.isoyear = isocalendar[0]
+        self.isoweek = isocalendar[1]
+        self.isoweekday = isocalendar[2]
         self.hour = timestamp.hour
-        self.total = total
+        self.value = value
     
     @property
     def path(self):
@@ -97,13 +99,15 @@ class Correlation(AsyncModel):
     table = "correlation"
     
     @mongodb_init
-    def __init__(self, user_id = '', dimension = '', start = '',
-    end = '', correlation = 0, threshold = '', paths = {}, key = ''):
+    def __init__(self, user_id = '', dimension = '', start = '', end = '',
+    paths = [], group_by = [], sort = {}, correlation = 0, threshold = '',
+    key = ''):
         self.user_id = user_id
-        self.dimension = dimension
         self.start = start
         self.end = end
+        self.paths = paths
+        self.group_by = group_by
+        self.sort = sort
         self.correlation = correlation
         self.threshold = threshold
-        self.paths = paths
-        self.lookup_key = lookup_key # For easy retrieval based on query params.
+        self.key = key # For easy retrieval based on query params.

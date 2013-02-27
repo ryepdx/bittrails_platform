@@ -245,6 +245,7 @@ class GoogleOAuth(OAuth2):
                     "User %s does not have a refresh token. Abandoning request." % (
                         user['_id'])
                     )
+                import pdb; pdb.set_trace()
                 self._logger.info("Abandoned request for user %s was %s" % (
                     user['_id'], args))
             else:

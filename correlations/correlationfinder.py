@@ -1,5 +1,4 @@
 import pymongo
-import numpy
 import logging
 import async_tasks.models
 import utils
@@ -8,30 +7,23 @@ from collections import OrderedDict
 from api.constants import INTERVALS
 from decimal import Decimal
 from constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
+from async_tasks.helper_classes import UserTimeSeriesQuery
 
 class CorrelationFinder(object):
-    def __init__(self, user, aspects, aspects_json = None, start = None,
-    end = None, window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION,
-    thresholds = [], intervals = INTERVALS, use_cache = True):
+    def __init__(self, user, paths, match = None, group_by = None,
+    start = None, end = None, sort = None,
+    window_size = MINIMUM_DATAPOINTS_FOR_CORRELATION,
+    thresholds = [], use_cache = False):
         self.user = user
-        self.aspects = aspects
-        
-        # Construct a dictionary of the aspects requested for returning
-        # later to the user as JSON data. Having the aspects in this format
-        # isn't very useful for our implementation, but it's very useful to
-        # the user, who will expect the aspects to be expressed in the same
-        # way that the datastreams.json endpoint expresses them, and in the
-        # same way that they are asked to pass them in to Platform.
-        self.aspects_json = aspects_json if aspects_json else dict([(key, 
-                [utils.aspect_tuple_to_name(value) for value in value_list]
-            ) for key, value_list in aspects.items()])
-            
+        self.paths = paths
+        self.match = match
+        self.group_by = group_by
         self.start = start
         self.end = end
+        self.sort = sort
         self.window_size = window_size
         self.thresholds = thresholds
         self.gatekeepers = self._create_gatekeepers(thresholds)
-        self.intervals = intervals
         self.use_cache = use_cache
         
     def get_correlations(self):
@@ -46,45 +38,35 @@ class CorrelationFinder(object):
             # we're starting at a different offset.
             correlations = self.retrieve_cache(correlation_key)
         else:
-            correlations = dict(
-                [(interval, []) for interval in self.intervals])
+            correlations = []
         
         # Alright, let's find whatever correlations there are left to find!
-        for interval in self.intervals:
-            
-            # Are there gaps between the end of the cache and the end of the
-            # requested timeframe that we need to fill in here?
-            if (self.use_cache and interval in correlations
-            and correlations[interval]):
-                matrix = self.get_matrix(interval,
-                    correlations[interval][-1]['end'], self.end)
-            else:
-                matrix = self.get_matrix(interval, self.start, self.end)
-            
-            # Right now we're just assuming that there is no data available
-            # for a datapoint if there is no entry for it.
-            # TODO: Make missing datapoints imply 0 for continuous datastream
-            # aspects like Twitter and Last.fm counts.            
-            interval_keys = utils.get_intersection_of_keys(matrix)
+        # Are there gaps between the end of the cache and the end of the
+        # requested timeframe that we need to fill in here?
+        if (self.use_cache and correlations):
+            matrix = self.get_matrix(start = correlations[-1]['end'])
+        else:
+            matrix = self.get_matrix()
+        
+        covered_timeframes = matrix[0]
+        matrix = matrix[1:]
+        
+        # Make sure we have enough datapoints to find a correlation.
+        if len(covered_timeframes) >= self.window_size:
+            results = self.find_correlations(matrix, covered_timeframes)
 
-            # Make sure we have enough overlapping datapoints
-            # to find a correlation.
-            if len(interval_keys) >= self.window_size:
-                results[interval] = self.find_correlations(
-                    matrix, interval, interval_keys)
+            if self.use_cache:
+                # Cache all the results (except for the last one if the
+                # last one appears to only have had its end date set by
+                # virtue of running out of data.)
+                if (results
+                and results[-1]['end'] == covered_timeframes[-1]):
+                    results[key].pop()
         
-                correlations[interval] += results[interval]
-        
-                if self.use_cache:
-                    # Cache all the results (except for the last one if the
-                    # last one appears to only have had its end date set by
-                    # virtue of running out of data.)
-                    if (results[interval] 
-                    and results[interval][-1]['end'] == interval_keys[-1]):
-                        results[key].pop()
+                self.cache_correlations(results, correlation_key)
             
-                    self.cache_correlations(results[interval], correlation_key)
-                    
+            correlations += results
+                
         return correlations
         
     # Broke this out into its own function so we can override it for testing.
@@ -95,25 +77,24 @@ class CorrelationFinder(object):
             correlation.save()
             
     def retrieve_cache(self, correlation_key):
+        correlations = []
         params = {'key': correlation_key}
-        correlations = dict([(interval, []) for interval in self.intervals])
         
-        has_cache = (self.start == None 
-            or async_tasks.models.Correlation.find_one(dict(
-            params.items() + [('start', self.start)])))
+        if self.start:
+            params['start'] = {'$gte': start}
         
-        if has_cache:
-            if self.start:
-                params['start'] = {'$gte': start}
-        
-            if self.end:
-                params['end'] = {'$lte': self.end}
+        if self.end:
+            params['end'] = {'$lte': self.end}
                 
-            cache = [row for row in Correlation.get_collection().find(params
-                ).sort('start', pymongo.ASCENDING)]
+        #cache = [row for row in Correlation.get_collection().find(params
+        #    ).sort('start', pymongo.ASCENDING)]
             
-            for row in cache:
-                correlations[row['interval']].append(Correlation(**row))
+        
+        cache = Correlation.get_collection().find(params
+            ).sort('start', pymongo.ASCENDING)
+        
+        for row in cache:
+            correlations.append(Correlation(**row))
         
         return correlations
 
@@ -123,44 +104,67 @@ class CorrelationFinder(object):
         keys. Returns the value saved in the 'key' field for the correlation
         using that set of aspects.
         '''
-        key = [str(self.start) + ' ' + str(self.window_size)]
-        aspect_names = []
-        for datastream in self.aspects:
-            for aspect in self.aspects[datastream]:
-                aspect_names.append(datastream + ':' + 
-                    utils.aspect_tuple_to_name(aspect))
-                    
-        key += sorted(aspect_names)
-                
-        return ','.join(key) + ',' + str(sorted(self.thresholds))
+        return ''.join([
+            str(self.start),
+            str(self.window_size),
+            ':'.join(sorted(self.paths)),
+            ','.join(sorted(self.group_by)),
+            ','.join(sorted(self.sort.keys())),
+            ','.join([str(value) for value in sorted(self.sort.values())]),
+            ','.join(sorted(self.thresholds))
+        ])
 
-    def get_matrix(self, interval, start, end):
+    def get_path_data(self, start = None, end = None):
+        '''
+        Create a list of dictionaries, one for each requested aspect,
+        mapping interval start dates to datapoints.
+        '''
+        path_data = []
+        
+        if not start:
+            start = self.start
+            
+        if not end:
+            end = self.end
+            
+        # Get the data corresponding to every aspect required.
+        for path in self.paths:            
+            # And get the data for that aspect for every interval.
+            query = UserTimeSeriesQuery(self.user, path, match = self.match,
+                group_by = self.group_by, min_date = self.start,
+                sort = self.sort, max_date = self.end)
+            datapoints = query.get_data()
+            
+            path_data.append(OrderedDict([
+                (str([row[field] for field in self.group_by]), row['value']
+                ) for row in datapoints]))
+
+        return path_data
+
+    def get_matrix(self, start = None, end = None, path_data = None,
+    covered_timeframes = None):
         '''
         Create a list of dictionaries, one for each requested aspect,
         mapping interval start dates to datapoints.
         '''
         data = []
-        params = {'user_id': self.user['_id'], 'interval': interval}
         
-        if start:
-            params['start'] = {'$gte': start}
-        
-        if end:
-            params['end'] = {'$lte': end}
-        
-        # Get the data corresponding to every aspect required.
-        for datastream in self.aspects:
-            for aspect, aspect_class in self.aspects[datastream]:
-                params['datastream'] = datastream
-                params['aspect'] = aspect
-                
-                # And get the data for that aspect for every interval.
-                datapoints = aspect_class.get_collection(
-                    ).find(params).sort('start', pymongo.ASCENDING)
-                
-                data.append(OrderedDict([(row['start'],
-                    aspect_class.get_data(row)) for row in datapoints]))
+        if not path_data:
+            path_data = self.get_path_data()
 
+        if not covered_timeframes:                
+            covered_timeframes = list(reduce(
+                lambda x, y: [key for key in y.keys() if key in x.keys()],
+                [datapoints for datapoints in path_data]))
+        
+        data.append(covered_timeframes)    
+        
+        for datapoints in path_data:
+            data.append([])
+            
+            for timeframe in covered_timeframes:
+                data[-1].append(datapoints[timeframe])
+        
         return data
 
     def _create_gatekeepers(self, thresholds):
@@ -178,28 +182,26 @@ class CorrelationFinder(object):
                     
         return gatekeepers
         
-    def find_correlations(self, datastream_list, interval, interval_keys):
+    def find_correlations(self, matrix, timestamps):
         correlations = []
-        datapoints_list = [OrderedDict() for i in range(
-            0, len(datastream_list))]
         correlation = 0
         activated_threshold = None
         current_threshold = None
-        covered_interval_keys = []
+        window_start = 0
+        window_end = self.window_size
+        matrix_row_len = len(matrix[0])
         
-        for key in interval_keys:
-            for i, datastream in enumerate(datastream_list):
-                datapoints_list[i][key] = datastream[key]
+        # Make sure there are enough datapoints in our sliding
+        # window to find a correlation.
+        if matrix_row_len >= self.window_size:
+            last_correlation = correlation
+            activated_threshold = None
             
-            # Make sure there are enough datapoints in our sliding
-            # window to find a correlation.
-            if len(datapoints_list[0]) >= self.window_size:
-                last_correlation = correlation
-                activated_threshold = None
-                
+            while window_end < matrix_row_len:
                 try:
-                    correlation = utils.correlate([datapoint.values(
-                        ) for datapoint in datapoints_list])
+                    activated_threshold = None
+                    correlation = utils.correlate(
+                        [stream[window_start:window_end] for stream in matrix])
                     
                     for gatekeeper in self.gatekeepers:
                         if not activated_threshold:
@@ -216,47 +218,55 @@ class CorrelationFinder(object):
                 # forward a correlation?
                 if not activated_threshold and not current_threshold:
                     # Slide the window forward.
-                    datapoints_list = [
-                            OrderedDict(datapoints_list[i].items()[1:]
-                            ) for i in range(0, len(datapoints_list))] 
+                    window_start += 1
+                    window_end += 1
                 
                 # Were we trying to accumulate datapoints when the
-                # template key went away or changed? Then save the buff.
+                # correlation went away or changed? Then save the buff.
                 # We want to save the start of the last interval the
                 # buff was applicable to as that buff's end, so we grab
                 # the date *before* the date of the last datapoint, as
                 # the last datapoint caused the correlation to end.
                 elif activated_threshold != current_threshold:
+                    
+                    # If we were extending out a correlation, then it must have
+                    # just dropped below the threshold. Save it and start the
+                    # window over.
                     if current_threshold:
                         correlations.append(Correlation(
                             user_id = self.user['_id'],
                             threshold = current_threshold,
-                            aspects = self.aspects_json,
-                            interval = interval,
-                            start = datapoints_list[0].keys()[0],
-                            end = datapoints_list[0].keys()[-2],
+                            paths = self.paths,
+                            group_by = self.group_by,
+                            sort = self.sort,
+                            start = timestamps[window_start],
+                            end = timestamps[window_end - 1],
                             correlation = last_correlation,
                             key = self.generate_correlation_key())
                         )
                         
-                        datapoints_list = [
-                            OrderedDict(datapoints_list[i].items()[-1:]
-                            ) for i in range(0, len(datapoints_list))]                                             
+                        window_start = window_end
+                        window_end = window_start + self.window_size
                         
                     # Either way, update current_threshold.
                     current_threshold = activated_threshold
-        
-        # If a threshold was passed, then there was a significant
-        # correlation found. Register a correlation.
+                    
+                # Just extending out a correlation?
+                elif current_threshold == activated_threshold:
+                    window_end += 1
+                
+        # "if current_threshold," then we were extending out a correlation
+        # when we reached the end of the matrix. Save the correlation.
         if current_threshold:
             correlations.append(
                 Correlation(
                     user_id = self.user['_id'],
                     threshold = current_threshold,
-                    aspects = self.aspects_json,
-                    interval = interval,
-                    start = datapoints_list[0].keys()[0],
-                    end = datapoints_list[0].keys()[-2],
+                    paths = self.paths,
+                    group_by = self.group_by,
+                    sort = self.sort,
+                    start = timestamps[window_start],
+                    end = timestamps[window_end-1],
                     correlation = last_correlation,
                     key = self.generate_correlation_key()
                 )

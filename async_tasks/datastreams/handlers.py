@@ -45,7 +45,7 @@ class TotalHandler(TimeSeriesHandler):
                 timestamp = timestamp
             )
             
-        self.totals[total_key].total += 1
+        self.totals[total_key].value += 1
 
     def finalize(self):
         for total in self.totals.values():
@@ -87,11 +87,11 @@ class LastfmScrobble(TotalHandler):
         return datetime.datetime(*time_tuple[:6])
         
     
-class LastfmScrobbleEnergy(LastfmScrobble):
-    path = LastfmScrobble.path + '/energy' 
+class LastfmScrobbleEchonest(LastfmScrobble):
+    path = LastfmScrobble.path + '/echonest' 
     
     def __init__(self, *args, **kwargs):
-        super(LastfmScrobbleEnergy, self).__init__(*args, **kwargs)
+        super(LastfmScrobbleEchonest, self).__init__(*args, **kwargs)
         self.song_ids = []
         self.scrobbles = []
         
@@ -168,19 +168,29 @@ class LastfmScrobbleEnergy(LastfmScrobble):
             energy_key = self.get_accumulator_key(scrobble['datetime'])
             
             if energy_key not in energy_objs:
-                energy_objs[energy_key] = self.model_class.find_or_create(
-                    user_id = self.user['_id'],
-                    parent_path = self.parent_path + self.path + "/",
-                    timestamp = scrobble['datetime'])
+                energy_objs[energy_key] = {
+                    'energy/total.json':
+                        self.model_class.find_or_create(
+                        user_id = self.user['_id'],
+                        parent_path = self.parent_path + self.path + "/energy/",
+                        timestamp = scrobble['datetime']),
+                    'total.json':
+                        self.model_class.find_or_create(
+                        user_id = self.user['_id'],
+                        parent_path = self.parent_path + self.path + "/",
+                        timestamp = scrobble['datetime'])
+                }
             
             # Unfortunately Echo Nest doesn't know about all the songs a
             # user may scrobble. Make sure we have the energy for the song
             # before we go trying to add it to our numerator.
             if (scrobble['artist'] in energy_lookup
             and scrobble['track'] in energy_lookup[scrobble['artist']]):
-                energy_objs[energy_key].total += (
+                energy_objs[energy_key]['energy/total.json'].value += (
                     energy_lookup[scrobble['artist']][scrobble['track']])
+                energy_objs[energy_key]['total.json'].value += 1
                 
-        # Save all the averages.
+        # Save all the totals.
         for energy_obj in energy_objs.values():
-            energy_obj.save()
+            energy_obj['energy/total.json'].save()
+            energy_obj['total.json'].save()

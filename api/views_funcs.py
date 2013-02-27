@@ -8,13 +8,15 @@ import iso8601
 import logging
 import pytz
 import bson
+
 from correlations import utils
 from correlations.correlationfinder import CorrelationFinder
 from flask import abort, request
 from oauth_provider.models import User, AccessToken, UID
 from oauthlib.common import add_params_to_uri
 from auth import APIS
-from async_tasks.models import TimeSeriesPath
+from async_tasks.models import TimeSeriesPath, TimeSeriesData
+from async_tasks.helper_classes import UserTimeSeriesQuery
 
 OAUTH_PARAMS = [
     'oauth_version', 'oauth_token', 'oauth_nonce', 'oauth_timestamp',
@@ -56,127 +58,55 @@ def get_children_func(user, parent_path):
             ).find({"user_id": user['_id'], "parent_path": parent_path}
             ).distinct('name')])
 
-def get_service_data_func(user, datastream, aspect, handler_name, request):
-    if hasattr(async_tasks.datastreams.handlers, handler_name):
-        model_class = getattr(
-            async_tasks.datastreams.handlers, handler_name).model_class
-    else:
-        abort(404)
-    
+def get_service_data_func(user, path, request,
+query_class = UserTimeSeriesQuery):
+    # Query parameters.
     match = json.loads(request.args.get('match', '{}'))
-    group_by = json.loads(request.args.get('groupBy', model_class.dimensions))
-    aggregate = json.loads(request.args.get('aggregate', '{}'))
+    aggregate = json.loads(request.args.get('aggregate', 'null'))
+    group_by = request.args.get('groupBy')
     
-    now = datetime.datetime.now(pytz.utc).replace(
-        hour = 0, minute = 0, second = 0, microsecond = 0)
-    interval = request.args.get('interval', 'week')
+    if group_by:
+        group_by = json.loads(group_by)
+        sort = [(field, pymongo.ASCENDING) for field in group_by]
+    else:
+        group_by = TimeSeriesData.dimensions
     
+    # Calculate the min_date and max_date parameters
+    timestamp_match = {}
     min_date = request.args.get('minDate')
     if min_date:
-        min_date = iso8601.parse_date(min_date)
-    else:
-        min_date = (now - datetime.timedelta(days=30))        
-    
+        try:
+            min_date = iso8601.parse_date(min_date)
+        except iso8601.ParseError:
+            min_date = datetime.datetime.strptime(
+                min_date, "%Y-%m-%d").replace(tzinfo=pytz.utc)
+        
     max_date = request.args.get('maxDate')
     if max_date:
-        max_date = iso8601.parse_date(max_date)
-    else:
-        max_date = now
+        try:
+            max_date = iso8601.parse_date(max_date)
+        except ParseError:
+            max_date = datetime.datetime.strptime(
+                max_date, "%Y-%m-%d").replace(tzinfo=pytz.utc)
+        
+    sort = json.loads(
+        request.args.get('sort', '{"year":1, "month":1, "week":1, "day":1}'),
+        object_pairs_hook = collections.OrderedDict)
 
-    date_format = DATE_FORMATS.get(
-        request.args.get('timeformat', 'y-m-d').lower(), DATE_FORMATS['y-m-d'])
+    query = query_class(user, path, match = match,
+        group_by = group_by, aggregate = aggregate, min_date = min_date,
+        max_date = max_date, sort = sort, continuous = json.loads(
+            request.args.get('continuous', 'false')))
+    
+    return json.dumps(query.get_data())
 
-    match.update(
-        {'posted_date': {'$gte': min_date, '$lte': max_date},
-         'user_id': user['_id'], 'datastream': datastream, 'aspect': aspect})
-        
-    aggregation = [{'$match': match}]
+def get_correlations(user, paths, group_by, start, end, sort, window_size,
+thresholds, use_cache = True):    
+    finder = CorrelationFinder(user, paths, group_by = group_by, start = start,
+        end = end, sort = sort, window_size = window_size,
+        thresholds = thresholds, use_cache = use_cache)
     
-    grouping = {'_id': dict(
-        [(dimension, '$'+dimension) for dimension in group_by])}
-        
-    # Overwrite any nefarious user input.
-    grouping['_id'].update({'start':'$start', 'user_id':'$user_id'})
-        
-    for dimension, aggregator in aggregate.items():
-        grouping[dimension] = {'$'+aggregator: '$'+dimension}
-    
-    # Append our preprocessor projection to the aggregation functions.
-    pre_projection = dict([(dimension, '$_id.' + dimension
-        ) for dimension in group_by])
-    pre_projection['_id'] = 0
-    
-    post_projection = dict([(dimension, 1) for dimension in dimensions])
-    post_projection.update(dict([(dimension, value
-        ) for dimension, value in pre_projection.items() if '_id' not in dimension]))
-        
-    # Append our preprocessor grouping to the aggregation functions.
-    if model_class.extra_grouping:
-        pre_grouping = {'_id': grouping['_id']}
-        pre_grouping.update(model_class.extra_grouping)
-        aggregation.append({'$group': pre_grouping})
-        
-    if model_class.extra_dimensions:
-        pre_projection.update(model_class.extra_dimensions)
-        aggregation.append({'$project': pre_projection})
-    
-    # Okay, now we append the grouping the user requested.
-    aggregation.append({'$group': grouping})
-    aggregation.append({'$project': post_projection})
-    aggregation.append({'$sort': bson.SON([('start', pymongo.ASCENDING)])})
-    results = model_class.get_collection().aggregate(aggregation)
-    
-    result_data = collections.OrderedDict()
-    
-    for result in results['result']:
-        result_start = date_format(result['start'])
-        if result_start not in result_data:
-            result_data[result_start] = []
-                
-        result_data[result_start].append(model_class.get_data(result))
-    
-    # Fill in missing datapoints for "continuous" datastreams (like Twitter.)
-    if not model_class.continuous:
-        data = result_data
-    else:
-        data = collections.OrderedDict()
-
-        while start < end:
-            key = date_format(start)
-            data[key] = result_data.get(
-                key, [model_class.get_empty_data(dimensions)])
-            start = increment_time(start, interval)
-        
-    return json.dumps(data)
-    
-def get_correlations(user, aspects_json, start, end, window_size, thresholds,
-intervals, handler_module = async_tasks.datastreams.handlers, use_cache = True):
-    correlations = {}
-    aspect_tuples = {}
-    
-    # Create our aspect tuples dictionary for passing on to CorrelationFinder.
-    for key in aspects_json:
-        aspect_tuples[key] = (
-            [utils.aspect_name_to_tuple(aspect, model_module = model_module
-            ) for aspect in aspects_json[key]])
-    
-    finder = CorrelationFinder(user, aspect_tuples,
-        start = start, end = end, window_size = window_size,
-        thresholds = thresholds, intervals = intervals,
-        aspects_json = aspects_json, use_cache = use_cache)
-    
-    # Filter out all the fields we don't want to include
-    # in the returned correlations.
-    for interval, correlation_list in finder.get_correlations().items():
-        if interval not in correlations:
-            correlations[interval] = []
-        
-        for correlation in correlation_list:
-            correlations[interval].append(collections.OrderedDict(
-                [(key, correlation[key]) for key in [
-                'interval', 'start', 'end','correlation', 'aspects']]))
-    
-    return correlations
+    return finder.get_correlations()
 
 def passthrough(user, apis, service, endpoint):
     if request.args:
