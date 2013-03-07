@@ -1,4 +1,5 @@
 """Supporting models for all asynchronous tasks."""
+from json import JSONEncoder
 from db.models import Model, mongodb_init
 
 class AsyncModel(Model):
@@ -111,3 +112,8 @@ class Correlation(AsyncModel):
         self.correlation = correlation
         self.threshold = threshold
         self.key = key # For easy retrieval based on query params.
+
+    def json_filter(self):
+        return {field: self[field]
+            for field in ["paths", "group_by", "start", "end", "correlation"]}
+        

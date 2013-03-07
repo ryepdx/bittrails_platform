@@ -17,11 +17,16 @@ def main():
     app.config['TRAP_BAD_REQUEST_ERRORS'] = DEBUG
 
     # Register all our routes and blueprints.
+    # OAuth services and endpoints (Twitter, Google, Foursquare, etc.)
     register_auth_blueprints(app)
+    
+    # Platform API endpoints.
     app.register_blueprint(api.views.app, url_prefix = '/v1')
+    
+    # Platform OAuth authentication, registration, and management endpoints.
     app.register_blueprint(oauth_provider.views.app)
     
-    # Set up login and registration.
+    # Login and registration.
     login_manager = LoginManager()
     login_manager.setup_app(app)
     register.signals.connect_signals(app)

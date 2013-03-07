@@ -26,6 +26,8 @@ app = Blueprint('api', __name__)
 
 @app.route('/correlations/<correlation_id>.json')
 def correlation(correlation_id):
+    """Returns the JSON representation of the requested correlation."""
+    
     try:
         correlation = Correlation.find_one(bson.ObjectId(correlation_id))
         
@@ -34,7 +36,7 @@ def correlation(correlation_id):
             
         correlation = OrderedDict([(key, correlation[key]
             ) for key in ['interval', 'start', 'end', 'correlation',
-            'aspects']])
+            'paths', 'group_by']])
             
     except bson.errors.InvalidId:
         abort(404)
@@ -42,9 +44,9 @@ def correlation(correlation_id):
     protected_func = (lambda x: x)
     
     # Wrap the return function in the appropriate realm checks.
-    for datastream in correlation['aspects'].keys():
+    for path in correlation['paths']:
         protected_funct = PROVIDER.require_oauth(
-            realm = datastream)(protected_func)
+            realm = path.split("/")[0])(protected_func)
         
     return protected_func(json.dumps(
             correlation, cls = correlations.jsonencoder.JSONEncoder))
@@ -52,6 +54,8 @@ def correlation(correlation_id):
 
 @app.route('/correlations.json')
 def find_correlations():
+    """Finds and returns correlations according the request parameters."""
+    
     paths = request.args.get("paths")
     thresholds = request.args.get("thresholds")
     group_by = request.args.get("groupBy")
@@ -87,6 +91,11 @@ def find_correlations():
     if paths:
         try:
             paths = json.loads(paths)
+            
+            for i in range(0, len(paths)):
+                if "." in paths[i]:
+                    paths[i] = paths[i].split(".")[0]
+                
         except:
             abort(400)
     else:
@@ -138,18 +147,19 @@ def find_correlations():
         get_correlations(user, paths, group_by, min_date, max_date, sort,
         window_size, thresholds, use_cache = False),
         cls = correlations.jsonencoder.JSONEncoder))
-    # TODO: Fix realm check.
-    #for datastream in aspects.keys():
-    #    protected_funct = PROVIDER.require_oauth(
-    #        realm = datastream)(protected_func)
+    
+    for path in paths:
+        protected_funct = PROVIDER.require_oauth(
+            realm = path.split("/")[0])(protected_func)
             
     return decorators.provide_oauth_user(protected_func)()
 
 @app.route('/<path:path>.json')
 def get_service_data(path):
+    realm = path.split("/")[0]
     return decorators.provide_oauth_user(
-        get_service_data_func)(path, request)
-    
+        PROVIDER.require_oauth(realm = realm)(get_service_data_func)
+    )(path, request)
     
 @app.route('/<path:parent_path>children.json')
 def get_children(parent_path):
@@ -161,7 +171,7 @@ def get_top_level_children():
     # Should eventually get rid of this function and just add top-level path
     # entries when a user authorizes a new service.
     return json.dumps(
-        ['children.json', 'groupBy.json'] + [(task_class.datastream_name + "/"
+        ['children.json', 'dimensions.json'] + [(task_class.datastream_name + "/"
         ) for task_class in async_tasks.datastreams.tasks.Tasks.__subclasses__()])
         
 @app.route('/dimensions.json')

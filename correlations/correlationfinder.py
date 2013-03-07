@@ -2,6 +2,7 @@ import pymongo
 import logging
 import async_tasks.models
 import utils
+import json
 from async_tasks.models import Correlation
 from collections import OrderedDict
 from api.constants import INTERVALS
@@ -194,12 +195,12 @@ class CorrelationFinder(object):
         # Make sure there are enough datapoints in our sliding
         # window to find a correlation.
         if matrix_row_len >= self.window_size:
-            last_correlation = correlation
             activated_threshold = None
             
             while window_end < matrix_row_len:
                 try:
                     activated_threshold = None
+                    last_correlation = correlation
                     correlation = utils.correlate(
                         [stream[window_start:window_end] for stream in matrix])
                     
@@ -239,8 +240,8 @@ class CorrelationFinder(object):
                             paths = self.paths,
                             group_by = self.group_by,
                             sort = self.sort,
-                            start = timestamps[window_start],
-                            end = timestamps[window_end - 1],
+                            start = json.loads(timestamps[window_start]),
+                            end = json.loads(timestamps[window_end - 1]),
                             correlation = last_correlation,
                             key = self.generate_correlation_key())
                         )
@@ -265,8 +266,8 @@ class CorrelationFinder(object):
                     paths = self.paths,
                     group_by = self.group_by,
                     sort = self.sort,
-                    start = timestamps[window_start],
-                    end = timestamps[window_end-1],
+                    start = json.loads(timestamps[window_start]),
+                    end = json.loads(timestamps[window_end-1]),
                     correlation = last_correlation,
                     key = self.generate_correlation_key()
                 )

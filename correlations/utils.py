@@ -55,3 +55,7 @@ def aspect_name_to_tuple(aspect_string, model_module = async_tasks.models):
 
 def aspect_tuple_to_name(aspect_tuple):
     return aspect_tuple[0] + '_' + aspect_tuple[1].__name__.lower()
+
+def correlation_json_filter(correlation):
+    json_fields = ["start", "end", "correlation"]
+    return {field: correlation[field] for field in json_fields}

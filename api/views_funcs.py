@@ -11,12 +11,14 @@ import bson
 
 from correlations import utils
 from correlations.correlationfinder import CorrelationFinder
+from correlations.helper_classes import CorrelationJSONEncoder
 from flask import abort, request
 from oauth_provider.models import User, AccessToken, UID
 from oauthlib.common import add_params_to_uri
 from auth import APIS
 from async_tasks.models import TimeSeriesPath, TimeSeriesData
-from async_tasks.helper_classes import UserTimeSeriesQuery
+from async_tasks.helper_classes import (
+    UserTimeSeriesQuery, PathNotFoundException)
 
 OAUTH_PARAMS = [
     'oauth_version', 'oauth_token', 'oauth_nonce', 'oauth_timestamp',
@@ -63,10 +65,9 @@ query_class = UserTimeSeriesQuery):
     # Query parameters.
     match = json.loads(request.args.get('match', '{}'))
     aggregate = json.loads(request.args.get('aggregate', 'null'))
-    group_by = request.args.get('groupBy')
+    group_by = json.loads(request.args.get('groupBy', 'null'))
     
     if group_by:
-        group_by = json.loads(group_by)
         sort = [(field, pymongo.ASCENDING) for field in group_by]
     else:
         group_by = TimeSeriesData.dimensions
@@ -98,15 +99,20 @@ query_class = UserTimeSeriesQuery):
         max_date = max_date, sort = sort, continuous = json.loads(
             request.args.get('continuous', 'false')))
     
-    return json.dumps(query.get_data())
+    try:
+        return json.dumps(query.get_data())
+    except PathNotFoundException:
+        abort(404)
 
 def get_correlations(user, paths, group_by, start, end, sort, window_size,
 thresholds, use_cache = True):    
     finder = CorrelationFinder(user, paths, group_by = group_by, start = start,
         end = end, sort = sort, window_size = window_size,
         thresholds = thresholds, use_cache = use_cache)
-    
-    return finder.get_correlations()
+    correlations = [correlation.json_filter()
+        for correlation in finder.get_correlations()]
+        
+    return json.dumps(correlations)
 
 def passthrough(user, apis, service, endpoint):
     if request.args:

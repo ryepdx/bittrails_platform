@@ -1,8 +1,12 @@
+import auth.oauth
+import auth.twitter
+import auth.google
+import auth.lastfm
+import auth.foursquare
+
 from flask.ext.login import current_user
 from blinker import Namespace
-from oauth_blueprint import (
-    OAuthBlueprint, FoursquareOAuth, TwitterOAuth, OAuth, OAuth2,
-    LastFmAuth, LastFmAuthBlueprint, GoogleOAuth)
+
 from settings import (TWITTER_KEY, TWITTER_SECRET, 
                       FOURSQUARE_CLIENT_ID, FOURSQUARE_CLIENT_SECRET, 
                       FITBIT_KEY, FITBIT_SECRET,
@@ -11,45 +15,41 @@ from settings import (TWITTER_KEY, TWITTER_SECRET,
                       
 from auth import signals
 
-APIS = {'twitter': TwitterOAuth(
+APIS = {'twitter': auth.twitter.TwitterOAuth(
             name = 'twitter',
             base_url = 'https://api.twitter.com/1/',
             request_token_url = 'https://api.twitter.com/oauth/request_token',
             access_token_url = 'https://api.twitter.com/oauth/access_token',
             authorize_url = 'https://api.twitter.com/oauth/authenticate',
             consumer_key = TWITTER_KEY,
-            consumer_secret = TWITTER_SECRET,
-            aspects = ['tweet_count']
+            consumer_secret = TWITTER_SECRET
         ),
-        'foursquare': FoursquareOAuth(
+        'foursquare': auth.foursquare.FoursquareOAuth(
             name = 'foursquare',
             base_url = 'https://api.foursquare.com/v2/',
             access_token_url = 'https://foursquare.com/oauth2/access_token',
             authorize_url = 'https://foursquare.com/oauth2/authorize',
             consumer_key = FOURSQUARE_CLIENT_ID, 
-            consumer_secret = FOURSQUARE_CLIENT_SECRET,
-            aspects = ['checkin_count']
+            consumer_secret = FOURSQUARE_CLIENT_SECRET
         ),
-        'fitbit': OAuth(
+        'fitbit': auth.oauth.OAuth(
             name = 'fitbit',
             base_url = 'http://api.fitbit.com/',
             request_token_url = 'http://api.fitbit.com/oauth/request_token',
             access_token_url = 'http://api.fitbit.com/oauth/access_token',
             authorize_url = 'http://api.fitbit.com/oauth/authorize',
             consumer_key = FITBIT_KEY, 
-            consumer_secret = FITBIT_SECRET,
-            aspects = ['post_count']
+            consumer_secret = FITBIT_SECRET
         ),
-        'lastfm': LastFmAuth(
+        'lastfm': auth.lastfm.LastFmAuth(
             name = 'lastfm',
             base_url = 'http://ws.audioscrobbler.com/2.0/',
             access_token_url = 'http://ws.audioscrobbler.com/2.0/?method=auth.getSession&format=json',
             authorize_url = 'http://www.last.fm/api/auth/',
             consumer_key = LASTFM_KEY,
-            consumer_secret = LASTFM_SECRET,
-            aspects = ['scrobble_count', 'song_energy_average']
+            consumer_secret = LASTFM_SECRET
         ),
-        'google_tasks': GoogleOAuth(
+        'google_tasks': auth.google.GoogleOAuth(
             name = 'google_tasks',
             base_url = 'https://www.googleapis.com/',
             access_token_url = 'https://accounts.google.com/o/oauth2/token',
@@ -62,14 +62,13 @@ APIS = {'twitter': TwitterOAuth(
                 'scope': 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/tasks.readonly',
                 'approval_prompt': 'force'
             },
-            request_params = {'key': GOOGLE_KEY},
-            aspects = ['completed_task_count']
+            request_params = {'key': GOOGLE_KEY}
         )
     }
 
 BLUEPRINTS = {
     'twitter':
-        OAuthBlueprint(
+        auth.oauth.OAuthBlueprint(
             name = 'twitter',
             api = APIS['twitter'],
             oauth_refused_view = 'home.index',
@@ -77,7 +76,7 @@ BLUEPRINTS = {
         ),
         
     'foursquare':
-        OAuthBlueprint(
+        auth.oauth.OAuthBlueprint(
             name = 'foursquare',
             api = APIS['foursquare'],
             oauth_refused_view = 'home.index',
@@ -85,21 +84,21 @@ BLUEPRINTS = {
         ),
         
     'fitbit':
-        OAuthBlueprint(
+        auth.oauth.OAuthBlueprint(
             name = 'fitbit',
             api = APIS['fitbit'],
             oauth_refused_view = 'home.index',
             oauth_completed_view = 'home.index'
         ),
     'lastfm':
-        LastFmAuthBlueprint(
+        auth.lastfm.LastFmAuthBlueprint(
             name = 'lastfm',
             api = APIS['lastfm'],
             oauth_refused_view = 'home.index',
             oauth_completed_view = 'home.index'
         ),
     'google_tasks':
-        OAuthBlueprint(
+        auth.oauth.OAuthBlueprint(
             name = 'google_tasks',
             api = APIS['google_tasks'],
             oauth_refused_view = 'home.index',
