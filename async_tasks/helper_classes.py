@@ -172,10 +172,8 @@ class TimeSeriesQuery(object):
 
 
 class UserTimeSeriesQuery(TimeSeriesQuery):
-    def __init__(self, user, path, **kwargs):
-        path_parts = path.split("/")
-        parent_path = "/".join(path_parts[0:-1]) + "/"
-        self.aspect_name = path_parts[-1]
+    def __init__(self, user, parent_path, leaf_name, **kwargs):
+        self.aspect_name = leaf_name
         super(UserTimeSeriesQuery, self).__init__(user, parent_path, **kwargs)
     
     def get_data(self):

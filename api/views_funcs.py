@@ -87,8 +87,15 @@ def get_directory(user, parent_path):
             
     return json.dumps({'_links': links})
 
-def get_service_data_func(user, path, request,
+def get_service_data_func(user, parent_path, leaf_name, request,
 query_class = UserTimeSeriesQuery):
+    # Get the parent's title.
+    grandparent_path, parent_name = tuple(parent_path[0:-1].rsplit('/', 1))
+    parent_title = TimeSeriesPath.get_collection().find(
+        {'parent_path': grandparent_path+'/', 'name': parent_name}
+    ).distinct('title')
+    parent_title = parent_title[0] if len(parent_title) > 0 else None
+    
     # Query parameters.
     match = json.loads(request.args.get('match', '{}'))
     aggregate = json.loads(request.args.get('aggregate', 'null'))
@@ -121,13 +128,20 @@ query_class = UserTimeSeriesQuery):
         request.args.get('sort', '{"year":1, "month":1, "week":1, "day":1}'),
         object_pairs_hook = collections.OrderedDict)
 
-    query = query_class(user, path, match = match,
+    query = query_class(user, parent_path, leaf_name, match = match,
         group_by = group_by, aggregate = aggregate, min_date = min_date,
         max_date = max_date, sort = sort, continuous = json.loads(
             request.args.get('continuous', 'false')))
     
     try:
-        return json.dumps(query.get_data())
+        links = {'self': request.base_url}
+        if parent_title:
+            links['title'] = '%s %s' % (leaf_name[0:-1], parent_title)
+            
+        return json.dumps({
+            '_links': links,
+            'data': query.get_data()
+        })
     except PathNotFoundException:
         abort(404)
 
