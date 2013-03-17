@@ -21,7 +21,7 @@ def main():
     register_auth_blueprints(app)
     
     # Platform API endpoints.
-    app.register_blueprint(api.views.app, url_prefix = '/v1')
+    app.register_blueprint(api.views.app)
     
     # Platform OAuth authentication, registration, and management endpoints.
     app.register_blueprint(oauth_provider.views.app)

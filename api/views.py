@@ -18,10 +18,10 @@ from oauth_provider.models import User, AccessToken
 from oauth_provider.views import PROVIDER
 from async_tasks.models import Correlation, TimeSeriesData
 from correlations.constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
-from views_funcs import (get_service_data_func, get_children_func,
-    get_correlations, passthrough)
+from views_funcs import (get_service_data_func, get_directory,
+    get_top_level_directory, get_correlations, passthrough)
 
-app = Blueprint('api', __name__)
+app = Blueprint('api', __name__, url_prefix='/v1')
 
 
 @app.route('/correlations/<correlation_id>.json')
@@ -154,25 +154,22 @@ def find_correlations():
             
     return decorators.provide_oauth_user(protected_func)()
 
-@app.route('/<path:path>.json')
+@app.route('/<path:path>total.json')
+@app.route('/<path:path>average.json')
 def get_service_data(path):
     realm = path.split("/")[0]
     return decorators.provide_oauth_user(
         PROVIDER.require_oauth(realm = realm)(get_service_data_func)
     )(path, request)
-    
-@app.route('/<path:parent_path>children.json')
-def get_children(parent_path):
-    return decorators.provide_oauth_user(get_children_func)(parent_path)
-        
 
-@app.route('/children.json')
-def get_top_level_children():
-    # Should eventually get rid of this function and just add top-level path
-    # entries when a user authorizes a new service.
-    return json.dumps(
-        ['children.json', 'dimensions.json'] + [(task_class.datastream_name + "/"
-        ) for task_class in async_tasks.datastreams.tasks.Tasks.__subclasses__()])
+@app.route('/<path:parent_path>.json')
+def get_children(parent_path):
+    return decorators.provide_oauth_user(get_directory)(parent_path+'/')
+        
+@app.route('/root.json')
+def root_json():
+    return decorators.provide_oauth_user(
+        get_top_level_directory)(request.url_root + app.url_prefix[1:])
         
 @app.route('/dimensions.json')
 def dimensions():

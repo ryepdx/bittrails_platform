@@ -104,11 +104,11 @@ class TimeSeriesQuery(object):
         if self.continuous:
             user_id_query = {
                 "$or": [{"user_id": self.user['_id']}, {"user_id":None}]}
-            name_query = {"$or": [{"name": "total.json"}, {"name": None}]}
+            name_query = {"$or": [{"name": "total"}, {"name": None}]}
             parent_path_query.append({'parent_path': None})
         else:
             user_id_query = {"user_id": self.user['_id']}
-            name_query = {"name": "total.json"}
+            name_query = {"name": "total"}
         
         match = [user_id_query, {"$or": parent_path_query}, name_query]
         

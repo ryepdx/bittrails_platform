@@ -52,13 +52,35 @@ def increment_time(datetime_obj, interval_name):
             datetime_obj.year + 1, 1, 1, tzinfo = datetime_obj.tzinfo)
             
     return datetime_obj
+    
+
+def get_top_level_directory(user, url_prefix):
+    links = {
+        'self': {'href': request.base_url, 'title': 'API root'},
+        'dimensions.json': {
+            'href': '%s/dimensions.json' % (url_prefix),
+            'title': 'dimensions for aggregating leaf data'
+        }
+    }
+        
+    links.update({datastream: {
+            'href': '%s/%s.json' % (url_prefix, datastream)
+        } for datastream in user['external_tokens'].keys()})
+    return json.dumps({'_links': links})
 
 
-def get_children_func(user, parent_path):
-    return json.dumps(['children.json'] + [(path
-        ) for path in TimeSeriesPath.get_collection(
-            ).find({"user_id": user['_id'], "parent_path": parent_path}
-            ).distinct('name')])
+def get_directory(user, parent_path):
+    url_prefix = request.url_root + 'v1'
+    links = {'self': {'href': request.base_url}}
+        
+    links.update({path['_id']['name']: {
+        'title': path['_id'].get('title'),
+        'href': '%s/%s.json' % (url_prefix, path['_id']['name'])
+        } for path in TimeSeriesPath.get_collection().aggregate([
+            {'$match': {"user_id": user['_id'], "parent_path": parent_path}},
+            {'$group': {'_id': {'name':'$name', 'title':'$title'}}}])['result']
+    })
+    return json.dumps({'_links': links})
 
 def get_service_data_func(user, path, request,
 query_class = UserTimeSeriesQuery):

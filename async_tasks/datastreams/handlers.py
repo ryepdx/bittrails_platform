@@ -169,12 +169,12 @@ class LastfmScrobbleEchonest(LastfmScrobble):
             
             if energy_key not in energy_objs:
                 energy_objs[energy_key] = {
-                    'energy/total.json':
+                    'energy/total':
                         self.model_class.find_or_create(
                         user_id = self.user['_id'],
                         parent_path = self.parent_path + self.path + "/energy/",
                         timestamp = scrobble['datetime']),
-                    'total.json':
+                    'total':
                         self.model_class.find_or_create(
                         user_id = self.user['_id'],
                         parent_path = self.parent_path + self.path + "/",
@@ -186,11 +186,11 @@ class LastfmScrobbleEchonest(LastfmScrobble):
             # before we go trying to add it to our numerator.
             if (scrobble['artist'] in energy_lookup
             and scrobble['track'] in energy_lookup[scrobble['artist']]):
-                energy_objs[energy_key]['energy/total.json'].value += (
+                energy_objs[energy_key]['energy/total'].value += (
                     energy_lookup[scrobble['artist']][scrobble['track']])
-                energy_objs[energy_key]['total.json'].value += 1
+                energy_objs[energy_key]['total'].value += 1
                 
         # Save all the totals.
         for energy_obj in energy_objs.values():
-            energy_obj['energy/total.json'].save()
-            energy_obj['total.json'].save()
+            energy_obj['energy/total'].save()
+            energy_obj['total'].save()
