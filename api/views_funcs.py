@@ -132,7 +132,7 @@ query_class = UserTimeSeriesQuery):
         abort(404)
 
 def get_correlations(user, paths, group_by, start, end, sort, window_size,
-thresholds, use_cache = True):    
+thresholds, use_cache = True):
     finder = CorrelationFinder(user, paths, group_by = group_by, start = start,
         end = end, sort = sort, window_size = window_size,
         thresholds = thresholds, use_cache = use_cache)

@@ -154,13 +154,12 @@ def find_correlations():
             
     return decorators.provide_oauth_user(protected_func)()
 
-@app.route('/<path:path>total.json')
-@app.route('/<path:path>average.json')
-def get_service_data(path):
+@app.route('/<path:path><any(totals, averages):leaf_name>.json')
+def get_service_data(path, leaf_name):
     realm = path.split("/")[0]
     return decorators.provide_oauth_user(
         PROVIDER.require_oauth(realm = realm)(get_service_data_func)
-    )(path, request)
+    )(path + leaf_name, request)
 
 @app.route('/<path:parent_path>.json')
 def get_children(parent_path):
