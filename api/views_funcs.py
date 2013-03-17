@@ -73,13 +73,18 @@ def get_directory(user, parent_path):
     url_prefix = request.url_root + 'v1'
     links = {'self': {'href': request.base_url}}
         
-    links.update({path['_id']['name']: {
-        'title': path['_id'].get('title'),
-        'href': '%s/%s.json' % (url_prefix, path['_id']['name'])
-        } for path in TimeSeriesPath.get_collection().aggregate([
-            {'$match': {"user_id": user['_id'], "parent_path": parent_path}},
-            {'$group': {'_id': {'name':'$name', 'title':'$title'}}}])['result']
-    })
+    # Get all the timeseries paths that have the specified parent path.
+    for path in TimeSeriesPath.get_collection().aggregate([
+    {'$match': {"user_id": user['_id'], "parent_path": parent_path}},
+    {'$group': {'_id': {'name':'$name', 'title':'$title'}}}])['result']:
+        links[path['_id']['name']] = {
+            'href': '%s/%s.json' % (url_prefix, path['_id']['name'])
+        }
+        
+        # Include the title in the returned data if the path has one set.
+        if 'title' in path['_id']:
+            links[path['_id']['name']]['title'] = path['_id']['title']
+            
     return json.dumps({'_links': links})
 
 def get_service_data_func(user, path, request,
