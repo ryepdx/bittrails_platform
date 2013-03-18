@@ -3,7 +3,7 @@ import views_funcs
 import datetime
 import correlations.mocks
 
-from async_tasks.datastreams.handlers import TwitterPostCounter
+from async_tasks.datastreams.handlers import TwitterTweet
 from bson import ObjectId
 from correlations.constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
 from api.constants import INTERVALS
@@ -15,7 +15,7 @@ class PostsCountTestCase(unittest.TestCase):
         
     def test_post_count(self):
         counts = views_funcs.get_service_data_func(
-            self.user, 'twitter', TwitterPostCounter.aspect, 'Count', 'by/week')
+            self.user, 'twitter', TwitterTweet.aspect, 'Count', 'by/week')
         self.assertTrue(len(counts) > 0)
 
 

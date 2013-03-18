@@ -3,7 +3,7 @@ import datetime
 from auth.mocks import APIS
 from bson import ObjectId
 from async_tasks.datastreams.iterators import TwitterPosts
-from async_tasks.datastreams.handlers import TwitterPostCounter
+from async_tasks.datastreams.handlers import TwitterTweet
 from oauth_provider.models import User
 
 class TestPosts(object):
