@@ -215,13 +215,6 @@ class CorrelationFinder(object):
                     logging.error(("Error while finding correlations " 
                         + "for user %s." % self.user['_id']),
                         exc_info = err)
-
-                # Didn't find a correlation and we're not carrying
-                # forward a correlation?
-                if not activated_threshold and not current_threshold:
-                    # Slide the window forward.
-                    window_start += 1
-                    window_end += 1
                 
                 # Were we trying to accumulate datapoints when the
                 # correlation went away or changed? Then save the buff.
@@ -229,7 +222,7 @@ class CorrelationFinder(object):
                 # buff was applicable to as that buff's end, so we grab
                 # the date *before* the date of the last datapoint, as
                 # the last datapoint caused the correlation to end.
-                elif activated_threshold != current_threshold:
+                if activated_threshold != current_threshold:
                     
                     # If we were extending out a correlation, then it must have
                     # just dropped below the threshold. Save it and start the
@@ -241,20 +234,22 @@ class CorrelationFinder(object):
                             paths = self.paths,
                             group_by = self.group_by,
                             sort = self.sort,
-                            start = json.loads(timestamps[window_start]),
+                            start = json.loads(timestamps[last_window_start]),
                             end = json.loads(timestamps[window_end - 1]),
                             correlation = last_correlation,
                             key = self.generate_correlation_key())
                         )
-                        
                         window_start = window_end
                         window_end = window_start + self.window_size
+                    else:
+                        last_window_start = window_start
                         
                     # Either way, update current_threshold.
                     current_threshold = activated_threshold
                     
-                # Just extending out a correlation?
+                # Slide the window forward
                 elif current_threshold == activated_threshold:
+                    window_start += 1
                     window_end += 1
                 
         # "if current_threshold," then we were extending out a correlation
