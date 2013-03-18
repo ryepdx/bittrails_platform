@@ -95,7 +95,7 @@ query_class = UserTimeSeriesQuery):
         {'parent_path': grandparent_path+'/', 'name': parent_name}
     ).distinct('title')
     parent_title = parent_title[0] if len(parent_title) > 0 else None
-    
+
     # Query parameters.
     match = json.loads(request.args.get('match', '{}'))
     aggregate = json.loads(request.args.get('aggregate', 'null'))
@@ -134,9 +134,9 @@ query_class = UserTimeSeriesQuery):
             request.args.get('continuous', 'false')))
     
     try:
-        links = {'self': request.base_url}
+        links = {'self': {'href': request.base_url}}
         if parent_title:
-            links['title'] = '%s %s' % (leaf_name[0:-1], parent_title)
+            links['self']['title'] = '%s %s' % (leaf_name[0:-1], parent_title)
             
         return json.dumps({
             '_links': links,

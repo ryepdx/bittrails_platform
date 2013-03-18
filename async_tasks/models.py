@@ -20,13 +20,14 @@ class LastPostRetrieved(AsyncModel):
         self.uid = uid
         self.datastream = datastream
         self.post_id = post_id
-
+        
 
 class TimeSeriesPath(AsyncModel):
     table = "timeseries"
     
     @mongodb_init
-    def __init__(self, user_id = '', parent_path = '', name = ''):
+    def __init__(self, user_id = '', parent_path = '', name = '',
+    title = None):
         # They're keyword arguments, sure, but they're not optional.
         assert user_id
         assert name
@@ -34,6 +35,9 @@ class TimeSeriesPath(AsyncModel):
         self.user_id = user_id
         self.name = name
         self.parent_path = parent_path
+        
+        if title:
+            self.title = title
         
     @property
     def path(self):
@@ -70,18 +74,21 @@ class TimeSeriesData(TimeSeriesPath):
         
     @mongodb_init
     def __init__(self, value = 0, timestamp = None, name = 'total',
-    **kwargs):
+    hour = None, day = None, week = None, month = None, year = None,
+    isoyear = None, isoweek = None, isoweekday = None, **kwargs):
+        assert timestamp
+        
         super(TimeSeriesData, self).__init__(name = name, **kwargs)
         isocalendar = timestamp.isocalendar()
         self.timestamp = self.simplify_timestamp(timestamp)
-        self.year = timestamp.year
-        self.month = timestamp.month
-        self.week = int(timestamp.strftime("%W"))
-        self.day = timestamp.day
-        self.isoyear = isocalendar[0]
-        self.isoweek = isocalendar[1]
-        self.isoweekday = isocalendar[2]
-        self.hour = timestamp.hour
+        self.year = year if year else timestamp.year
+        self.month = month if month else timestamp.month
+        self.week = week if week else int(timestamp.strftime("%W"))
+        self.day = day if day else timestamp.day
+        self.isoyear = isoyear if isoyear else isocalendar[0]
+        self.isoweek = isoweek if isoweek else isocalendar[1]
+        self.isoweekday = isoweekday if isoweekday else isocalendar[2]
+        self.hour = hour if hour else timestamp.hour
         self.value = value
     
     @property

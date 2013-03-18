@@ -127,13 +127,14 @@ class CorrelationFinder(object):
             
         if not end:
             end = self.end
-            
+        
         # Get the data corresponding to every aspect required.
         for path in self.paths:            
             # And get the data for that aspect for every interval.
-            query = UserTimeSeriesQuery(self.user, path, match = self.match,
-                group_by = self.group_by, min_date = self.start,
-                sort = self.sort, max_date = self.end)
+            path, leaf_name = path.rsplit('/', 1)
+            query = UserTimeSeriesQuery(self.user, path+'/', leaf_name,
+                match = self.match, group_by = self.group_by,
+                min_date = self.start, max_date = self.end, sort = self.sort)
             datapoints = query.get_data()
             
             path_data.append(OrderedDict([

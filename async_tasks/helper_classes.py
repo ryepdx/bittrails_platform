@@ -48,7 +48,6 @@ class TimeSeriesQuery(object):
         aggregation = self.begin_aggregation([
             "/".join(self.parent_path[0:-1].split("/")[0:-1])+"/",
             self.parent_path])
-        
         grouping_id = self.get_grouping_id()
         
         # subgrouping_id is also used for projecting the fields in the previous
