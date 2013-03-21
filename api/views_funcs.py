@@ -90,7 +90,7 @@ def get_directory(user, parent_path):
     {'$match': {"user_id": user['_id'], "parent_path": parent_path}},
     {'$group': {'_id': {'name':'$name', 'title':'$title'}}}])['result']:
         links[path['_id']['name']] = {
-            'href': '%s/%s.json' % (url_prefix, path['_id']['name'])
+            'href': '%s/%s.json' % (url_prefix, parent_path + path['_id']['name'])
         }
         
         # Include the title in the returned data if the path has one set.
