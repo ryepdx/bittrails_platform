@@ -54,7 +54,8 @@ def increment_time(datetime_obj, interval_name):
     return datetime_obj
     
 
-def get_top_level_directory(user, url_prefix):
+def get_top_level_directory(token, url_prefix):
+    user = User.find_one({'_id': token['user_id']})
     links = {
         'self': {'href': request.base_url, 'title': 'API root'},
         'dimensions.json': {
@@ -66,10 +67,21 @@ def get_top_level_directory(user, url_prefix):
     links.update({datastream: {
             'href': '%s/%s.json' % (url_prefix, datastream)
         } for datastream in user['external_tokens'].keys()})
+        
+    links.update({datastream['name']: {
+            'href': '%s/%s.json' % (url_prefix, datastream['name'])
+        } for datastream in TimeSeriesPath.get_collection().find(
+            {'parent_path': None,
+             'user_id': token['user_id'],
+             'client_id': token['client_id']
+             }
+        )
+    })
     return json.dumps({'_links': links})
 
 
 def get_directory(user, parent_path):
+    # TODO: Add realm protection.
     url_prefix = request.url_root + 'v1'
     links = {'self': {'href': request.base_url}}
         

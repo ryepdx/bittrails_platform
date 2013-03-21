@@ -1,7 +1,7 @@
 from flask import abort, request
 from oauth_provider.models import User, AccessToken
 
-def provide_oauth_user(_f):
+def provide_oauth_token(_f):
     def wrapped(*args, **kwargs):
         if request.method ==  "GET":
             token_key = request.args.get('oauth_token')
@@ -12,11 +12,20 @@ def provide_oauth_user(_f):
         
         if token:
             token = AccessToken(**token)
-            user = User.find_one({'_id': token['user_id']})
             
-            return _f(user, *args, **kwargs)
+            return _f(token, *args, **kwargs)
             
         else:
             abort(400)
             
+    return wrapped
+
+def provide_oauth_user(_f):
+    def wrapped(*args, **kwargs):
+        
+        def _provide_user(token, *args, **kwargs):
+            user = User.find_one({'_id': token['user_id']})
+            return _f(user, *args, **kwargs)
+            
+        return provide_oauth_token(_provide_user)(*args, **kwargs)
     return wrapped

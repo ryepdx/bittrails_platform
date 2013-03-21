@@ -1,3 +1,5 @@
+import csv
+import urllib2
 import string
 import json
 import logging
@@ -5,7 +7,7 @@ from db.models import Model, mongodb_init
 from oauth_provider.models import User
 from ..models import LastPostRetrieved
 from handlers import (TwitterTweet, LastfmScrobble,
-    GoogleCompletedTask, LastfmScrobbleEchonest)
+    GoogleCompletedTask, LastfmScrobbleEchonest, CSVHandler)
 from iterators import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
 from auth import APIS
 
@@ -17,7 +19,7 @@ class Tasks(object):
         self.uid = uid
         self.api = api if api else APIS[self.datastream_name]
         self.logger = logger if logger else logging.getLogger(__name__)
-        self.handlers = [handler_class(self.user, self.datastream_name + '/'
+        self.handlers = [handler_class(user
             ) for handler_class in self.handler_classes]
     
     def run(self):
@@ -25,18 +27,19 @@ class Tasks(object):
             uid = self.uid, datastream = self.datastream_name)
         
         kwargs = {'api': self.api}
+        
         if last_post.post_id:
             kwargs['latest_position'] = last_post.post_id
             
-        # Query our datastream for objects of interest.
-        posts = self.iterator_class(self.user, self.uid, **kwargs)
-        
+        iterator = self.iterator_class(self.user, self.uid, **kwargs)
+            
+        # Query our datastream for objects of interest.        
         try:
             # Process all the returned objects with the task's defined handlers.
-            for post in posts:
+            for post in iterator:
                 for handler in self.handlers:
                     handler.handle(post)
-                last_post.post_id = posts.latest_position
+                last_post.post_id = iterator.latest_position
                 
         except:
             # If there was an exception, log it.
@@ -91,3 +94,28 @@ class GoogleTasks(Tasks):
     datastream_name = 'google'
     handler_classes = [GoogleCompletedTask]
     iterator_class = GoogleCompletedTasks
+
+class CSVDatastreamTasks(object):
+    datastream_name = 'custom'
+
+    def __init__(self, logger = None):  
+        self.logger = logger if logger else logging.getLogger(__name__)
+        
+    def run(self, stream):
+        handler = CSVHandler(stream)
+        
+        try:
+            # Grab the CSV data and save it in the database.
+            csv_file = urllib2.urlopen(stream['url'])
+            
+            for post in csv.DictReader(
+            csv_file, fieldnames = ['date', 'value']):
+                handler.handle(post)
+                
+            csv_file.close()
+            
+        except:
+            # If there was an exception, log it.
+            self.logger.exception(
+                "Exception while reading custom datastreams for user %s.\n"
+                    % stream['user_id'])

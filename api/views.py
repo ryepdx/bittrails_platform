@@ -16,7 +16,8 @@ from flask.ext.login import current_user
 from auth import APIS
 from oauth_provider.models import User, AccessToken
 from oauth_provider.views import PROVIDER
-from async_tasks.models import Correlation, TimeSeriesData
+from async_tasks.models import (Correlation, CustomTimeSeriesPath, 
+    TimeSeriesData)
 from correlations.constants import MINIMUM_DATAPOINTS_FOR_CORRELATION
 from views_funcs import (get_service_data_func, get_directory,
     get_top_level_directory, get_correlations, passthrough)
@@ -161,14 +162,52 @@ def get_service_data(path, leaf_name):
         PROVIDER.require_oauth(realm = realm)(get_service_data_func)
     )(path, leaf_name, request)
 
-@app.route('/<path:parent_path>.json')
+@app.route('/<path:parent_path>.json', methods=['GET'])
 def get_children(parent_path):
     return decorators.provide_oauth_user(get_directory)(parent_path+'/')
         
-@app.route('/root.json')
+@app.route('/root.json', methods=['GET'])
 def root_json():
-    return decorators.provide_oauth_user(
+    return decorators.provide_oauth_token(
         get_top_level_directory)(request.url_root + app.url_prefix[1:])
+
+@app.route('/root.json', methods=['POST'])
+@decorators.provide_oauth_token
+def root_json_post(token):
+    if ('path' not in request.form or 'url' not in request.form
+    or not request.form['path'] or not request.form['url']):
+        abort(400)
+        
+    path = request.form.get('path').replace("\\", '/').strip('/')
+    path_parts = path.split('/')
+    parent_path = ''
+    name = path_parts[-1]
+    
+    # Create the path leading up to this one if necessary.
+    path_parts_length = len(path_parts)
+    if path_parts_length > 1:
+        for i in range(0, path_parts_length-1):
+            custom_path = CustomTimeSeriesPath.find_or_create(
+                parent_path = parent_path if parent_path else None,
+                name = path_parts[i], user_id = token['user_id'],
+                client_id = token['client_id']
+            ).save()
+            
+            parent_path = parent_path + '/'.join(path_parts[0:i+1]) + '/'
+            
+    
+    # Create the requested path.
+    custom_path = CustomTimeSeriesPath.find_or_create(
+        parent_path = parent_path, name = name, user_id = token['user_id'],
+        client_id = token['client_id'], url = request.form.get('url'))
+    custom_path.title = request.form.get('title')
+    custom_path.save()
+    
+    return json.dumps({'_links':
+        {'self': request.url_root + 'v1/' + path + '.json'},
+         'title': custom_path.title,
+         'url': custom_path.url
+        })
         
 @app.route('/dimensions.json')
 def dimensions():

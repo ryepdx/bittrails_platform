@@ -1,26 +1,62 @@
+import ast
 import datetime
+import iso8601
 import logging
 from pyechonest import song as pyechonest_song
 from pyechonest.util import EchoNestAPIError
 
 from settings import ECHO_NEST_ID_LIMIT
 from email.utils import parsedate_tz
-from ..models import TimeSeriesData, TimeSeriesPath
+from ..models import TimeSeriesData, TimeSeriesPath, CustomTimeSeriesData
 from oauth_provider.models import User
+
+
+class CSVHandler(object):
+    model_class = CustomTimeSeriesData
+    
+    def __init__(self, stream, logger = None):    
+        self.stream = stream
+        self.logger = logger if logger else logging.getLogger(__name__)
+        
+    def handle(self, row):
+            datum = self.model_class.find_or_create(
+                user_id = self.stream['user_id'],
+                client_id = self.stream['client_id'],
+                parent_path = (self.stream['parent_path'] 
+                    + self.stream['name'] + "/"),
+                timestamp = self.get_datetime(row)
+            )
+            datum.value = ast.literal_eval(row['value'])
+            datum.save()
+        
+    def get_datetime(self, row):
+        return iso8601.parse_date(row['date'])
+        
+    def finalize(self):
+        pass
+    
 
 class TimeSeriesHandler(object):
     model_class = TimeSeriesData
     handler_classes = []
     
-    def __init__(self, user, parent_path, logger = None):    
+    def __init__(self, user, logger = None):    
         self.user = user
-        self.parent_path = parent_path
         self.logger = logger if logger else logging.getLogger(__name__)
+        
+        parent_path = ''
+        path_parts = self.path.strip('/').split('/')
         
         # Is there a path to this handler's data in the database?
         # Create one if not.
-        TimeSeriesPath.find_or_create(user_id = user['_id'],
-            parent_path = parent_path, name = self.path).save()
+        path_parts_length = len(path_parts)
+        if path_parts_length > 1:
+            for i in range(0, path_parts_length):
+                custom_path = TimeSeriesPath.find_or_create(
+                    user_id = user['_id'], parent_path = parent_path,
+                    name = path_parts[i]).save()
+                
+                parent_path = parent_path + '/'.join(path_parts[0:i+1]) + '/'
         
     
     def get_accumulator_key(self, timestamp):
@@ -41,7 +77,7 @@ class TotalHandler(TimeSeriesHandler):
         if total_key not in self.totals:
             self.totals[total_key] = self.model_class.find_or_create(
                 user_id = self.user['_id'],
-                parent_path = self.parent_path + self.path + "/",
+                parent_path = self.path + "/",
                 timestamp = timestamp
             )
             
@@ -53,7 +89,7 @@ class TotalHandler(TimeSeriesHandler):
     
     
 class TwitterTweet(TotalHandler):
-    path = 'tweets'
+    path = 'twitter/tweets'
     
     def get_datetime(self, post):
         try:
@@ -69,7 +105,7 @@ class TwitterTweet(TotalHandler):
     
     
 class GoogleCompletedTask(TotalHandler):
-    path = 'tasks/completed'
+    path = 'google/tasks/completed'
     
     def get_datetime(self, post):
         assert 'completed' in post
@@ -77,7 +113,7 @@ class GoogleCompletedTask(TotalHandler):
     
     
 class LastfmScrobble(TotalHandler):
-    path = 'scrobbles'
+    path = 'lastfm/scrobbles'
     
     def get_datetime(self, post):
         assert 'date' in post
@@ -172,12 +208,12 @@ class LastfmScrobbleEchonest(LastfmScrobble):
                     'energy/total':
                         self.model_class.find_or_create(
                         user_id = self.user['_id'],
-                        parent_path = self.parent_path + self.path + "/energy/",
+                        parent_path = self.path + "/energy/",
                         timestamp = scrobble['datetime']),
                     'total':
                         self.model_class.find_or_create(
                         user_id = self.user['_id'],
-                        parent_path = self.parent_path + self.path + "/",
+                        parent_path = self.path + "/",
                         timestamp = scrobble['datetime'])
                 }
             

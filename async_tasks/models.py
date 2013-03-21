@@ -26,7 +26,7 @@ class TimeSeriesPath(AsyncModel):
     table = "timeseries"
     
     @mongodb_init
-    def __init__(self, user_id = '', parent_path = '', name = '',
+    def __init__(self, user_id = '', parent_path = None, name = '',
     title = None):
         # They're keyword arguments, sure, but they're not optional.
         assert user_id
@@ -34,7 +34,9 @@ class TimeSeriesPath(AsyncModel):
         
         self.user_id = user_id
         self.name = name
-        self.parent_path = parent_path
+        
+        if parent_path:
+            self.parent_path = parent_path
         
         if title:
             self.title = title
@@ -51,6 +53,21 @@ class TimeSeriesPath(AsyncModel):
         # No, really. it's not optional.
         assert 'user_id' in self and self['user_id']
         return super(TimeSeriesPath, self).save(*args, **kwargs)
+        
+        
+class CustomTimeSeriesPath(TimeSeriesPath):
+    table = "timeseries"
+    
+    @mongodb_init
+    def __init__(self, url = None, client_id = None, **kwargs):
+        # Keyword arguments, but not optional.
+        assert client_id
+        self.client_id = client_id
+        
+        if url:
+            self.url = url
+        
+        super(CustomTimeSeriesPath, self).__init__(**kwargs)
 
    
 class TimeSeriesData(TimeSeriesPath):
@@ -99,6 +116,10 @@ class TimeSeriesData(TimeSeriesPath):
     def children(self):
         return None
         
+class CustomTimeSeriesData(TimeSeriesData):
+    def __init__(self, client_id, **kwargs):
+        self.client_id = client_id
+        super(CustomTimeSeriesData, self).__init__(**kwargs)
         
 class Correlation(AsyncModel):
     '''

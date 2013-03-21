@@ -1,5 +1,7 @@
+import csv
 import json
 import logging
+import urllib2
 from oauthlib.common import add_params_to_uri
 from auth import APIS
 from email.utils import parsedate_tz, formatdate, mktime_tz
@@ -163,7 +165,7 @@ class GoogleCompletedTasks(Posts):
         super(GoogleCompletedTasks, self).__init__(*args, **kwargs)
 
         if not self.api:
-            self.api = APIS['google_tasks']
+            self.api = APIS['google']
         
         self._latest_position = kwargs.get(
             'latest_position', '1900-01-01T00:00:00Z')

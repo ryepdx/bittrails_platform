@@ -1,3 +1,6 @@
+# TODO: Rewrite all of this to use paths instead of aspects.
+# Also have it discover streams automatically, to take advantage of custom
+# data streams.
 import logging
 import numpy
 from correlations.correlationfinder import CorrelationFinder
@@ -32,7 +35,7 @@ class CorrelationTask(object):
         if set(self.required_aspects).issubset(self.available_datastreams):
             
             # Okay, now let's look for some correlations!
-            finder = CorrelationFinder(self.user, self.required_aspects,
+            finder = CorrelationFinder(self.user, self.paths,
                 window_size = self.window_size, thresholds = self.thresholds,
                 use_cache = self.use_cache)
             self.correlations = finder.get_correlations()
@@ -41,7 +44,7 @@ class LastFmEnergyAndGoogleTasks(CorrelationTask):
 
     @property
     def required_aspects(self):
-        return {'google_tasks': [('completed_task', Count)],
+        return {'google': [('completed_task', Count)],
                  'lastfm': [('song_energy', Average)]}
            
     @property
@@ -53,7 +56,7 @@ class LastFmScrobblesAndGoogleTasks(CorrelationTask):
     
     @property
     def required_aspects(self):
-        return {'google_tasks': [('completed_task' , Count)],
+        return {'google': [('completed_task' , Count)],
                  'lastfm': [('scrobble', Count)]}
                  
     @property

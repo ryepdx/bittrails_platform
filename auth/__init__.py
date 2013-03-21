@@ -49,8 +49,8 @@ APIS = {'twitter': auth.twitter.TwitterOAuth(
             consumer_key = LASTFM_KEY,
             consumer_secret = LASTFM_SECRET
         ),
-        'google_tasks': auth.google.GoogleOAuth(
-            name = 'google_tasks',
+        'google': auth.google.GoogleOAuth(
+            name = 'google',
             base_url = 'https://www.googleapis.com/',
             access_token_url = 'https://accounts.google.com/o/oauth2/token',
             authorize_url = 'https://accounts.google.com/o/oauth2/auth',
@@ -97,10 +97,10 @@ BLUEPRINTS = {
             oauth_refused_view = 'home.index',
             oauth_completed_view = 'home.index'
         ),
-    'google_tasks':
+    'google':
         auth.oauth.OAuthBlueprint(
-            name = 'google_tasks',
-            api = APIS['google_tasks'],
+            name = 'google',
+            api = APIS['google'],
             oauth_refused_view = 'home.index',
             oauth_completed_view = 'home.index'
         )
