@@ -153,11 +153,11 @@ class CorrelationFinder(object):
         
         if not path_data:
             path_data = self.get_path_data()
-
-        if not covered_timeframes:                
+        
+        if not covered_timeframes and path_data:                
             covered_timeframes = list(reduce(
-                lambda x, y: [key for key in y.keys() if key in x.keys()],
-                [datapoints for datapoints in path_data]))
+                lambda x, y: [key for key in x if key in y.keys()],
+                [datapoints for datapoints in path_data], path_data[0].keys()))
         
         data.append(covered_timeframes)    
         
