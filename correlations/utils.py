@@ -16,7 +16,7 @@ def correlate(matrix):
     # This number will be found in the lower left-hand corner of the
     # returned correlation matrix.
     try:
-        return numpy.corrcoef(matrix)[-1][0]
+        return numpy.nan_to_num(numpy.corrcoef(matrix)[-1][0])
         
     except FloatingPointError:
         # We get floating point errors when matrices contain identical rows.
@@ -29,13 +29,13 @@ def correlate(matrix):
 
 def gatekeeper_func(threshold):
         threshold_num = Decimal(threshold[1:])
-            
+        
         if threshold[0] == '<':
             return (lambda x: threshold if x < threshold_num else None)
             
         elif threshold[0] == '>':
             return (lambda x: threshold if x > threshold_num else None)
-            
+    
 def get_intersection_of_keys(list_of_dicts):
     if list_of_dicts:
         keys = sorted(reduce((
