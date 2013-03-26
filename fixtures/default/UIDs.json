@@ -1,0 +1,25 @@
+[
+    {
+        "_id" : {"$oid": "515048c8fb5d1b4888b4acc6"},
+        "datastream" : "twitter",
+        "user_id" : {"$oid": "515048c8fb5d1b4888b4acc5"},
+        "uid" : "bt_testuser"
+    },
+    {
+        "_id" : {"$oid": "515048e2fb5d1b4888b4acce"},
+        "datastream" : "google",
+        "user_id" : {"$oid": "515048c8fb5d1b4888b4acc5"},
+        "uid" : "bittrails.testuser@gmail.com" }
+    {
+        "_id" : {"$oid": "515048f2fb5d1b4888b4acd3"},
+        "datastream" : "foursquare",
+        "user_id" : {"$oid": "515048c8fb5d1b4888b4acc5"},
+        "uid" : "51372953"
+    },
+    {
+        "_id" : {"$oid": "51504902fb5d1b4888b4acd8"},
+        "datastream" : "lastfm",
+        "user_id" : {"$oid": "515048c8fb5d1b4888b4acc5"},
+        "uid" : "54026633"
+    }
+]

@@ -1,10 +1,12 @@
 """Supporting models for all asynchronous tasks."""
+import app as platform
 from json import JSONEncoder
 from db.models import Model, mongodb_init
 
 class AsyncModel(Model):
     @classmethod
-    def get_collection(cls, database = "async_tasks"):
+    def get_collection(cls,
+    database = platform.app.config['DATABASES']['async']):
         return super(AsyncModel, cls).get_collection(database = database)
         
         

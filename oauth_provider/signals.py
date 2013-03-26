@@ -1,7 +1,7 @@
 from blinker import Namespace
 from flask import url_for, session
 from flask.ext.login import login_user, current_user, logout_user
-from oauth_provider.models import User, UID
+from models import User, UID
 from bson.objectid import ObjectId
 from auth.signals import oauth_completed
 from auth.auth_settings import TOKENS_KEY

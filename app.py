@@ -1,24 +1,27 @@
-from flask import Flask
-from flask.ext.login import LoginManager
-from settings import PORT, DEBUG, APP_SECRET_KEY
-from auth import register_auth_blueprints
+import flask
+import settings
 
-import register.signals
+app = flask.Flask(__name__)
 
-def main():
+def setup_app(settings):
+    app.secret_key = settings.APP_SECRET_KEY
+    app.config['TRAP_BAD_REQUEST_ERRORS'] = settings.DEBUG
+    app.config['DATABASES'] = settings.DATABASES
+
+def main(settings = settings, use_reloader = False):
+    setup_app(settings)    
     
-    app = Flask(__name__)
+    import auth
+    import oauth_provider.signals
+    import flask.ext.login
     
     with app.app_context():
         import oauth_provider.views
         import api.views
 
-    app.secret_key = APP_SECRET_KEY
-    app.config['TRAP_BAD_REQUEST_ERRORS'] = DEBUG
-
     # Register all our routes and blueprints.
     # OAuth services and endpoints (Twitter, Google, Foursquare, etc.)
-    register_auth_blueprints(app)
+    auth.register_auth_blueprints(app)
     
     # Platform API endpoints.
     app.register_blueprint(api.views.app)
@@ -27,17 +30,18 @@ def main():
     app.register_blueprint(oauth_provider.views.app)
     
     # Login and registration.
-    login_manager = LoginManager()
+    login_manager = flask.ext.login.LoginManager()
     login_manager.setup_app(app)
-    register.signals.connect_signals(app)
+    oauth_provider.signals.connect_signals(app)
     
-    if DEBUG:
+    if settings.DEBUG:
         @app.route('/url_map')
         def url_map():
             return str(app.url_map)
     
     # Run the app!
-    app.run(host = '0.0.0.0', port = PORT, debug = DEBUG)
+    app.run(host = '0.0.0.0', port = settings.PORT, debug = settings.DEBUG,
+        use_reloader = use_reloader)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

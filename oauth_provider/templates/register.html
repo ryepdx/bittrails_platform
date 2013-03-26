@@ -13,13 +13,13 @@
 </div>
 
 {% if clients %}
-<div class="six columns">
+<div id="registeredClients" class="six columns">
     <h3>Registered Clients</h3>
     {% for client in clients %}
     <p>
-        <strong>Name:</strong> {{ client.name }}<br />
-        <strong>Key:</strong> {{ client.client_key }}<br />
-        <strong>Secret:</strong> {{ client.secret }}
+        <strong>Name:</strong> <span class="name">{{ client.name }}</span><br />
+        <strong>Key:</strong> <span class="key">{{ client.client_key }}</span><br />
+        <strong>Secret:</strong> <span class="secret">{{ client.secret }}</span>
     </p>
     {% endfor %}
 </div>

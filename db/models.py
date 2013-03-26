@@ -1,5 +1,6 @@
+import app as platform
+
 from db import get_connection
-from settings import DATABASE
 from bson.objectid import ObjectId
 from functools import wraps
 
@@ -21,7 +22,8 @@ class Model(dict):
         self.convert_ids()
     
     @classmethod
-    def get_collection(cls, database = DATABASE):
+    def get_collection(cls,
+    database = platform.app.config['DATABASES']['default']):
         conn = get_connection(database)
         return conn[cls.table]
         

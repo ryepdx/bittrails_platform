@@ -1,5 +1,6 @@
 import oauth_provider
-from flask import request, render_template, g, url_for, redirect, session
+from flask import (request, render_template, g, url_for, redirect,
+    session, abort)
 from flask.ext.oauthprovider import OAuthProvider
 from flask.ext.login import current_user
 from bson.objectid import ObjectId
@@ -50,23 +51,29 @@ class BitTrailsProvider(OAuthProvider):
             # TODO: Authenticate client
             token_key = request.args.get(u"oauth_token")
             token = RequestToken.find_one({'token': token_key})
-            realm = token['realm']
             
-            # TODO: Make this more robust.
-            session['realm'] = realm
-            
-            if realm and realm in APIS:
-                #url = ("%s?first_oauth_token=%s" % 
-                #    (url_for('%s.finished' % realm, _external = True), token_key))
-                session['original_token'] = token_key
-                url = url_for('%s.finished' % realm, _external = True)
-                resp = APIS[realm].authorize(
-                    callback = url, **APIS[realm].auth_params)
+            if token:
+                realm = token.get('realm')
                 
-                return resp
+                # TODO: Make this more robust.
+                session['realm'] = realm
+                
+                if realm and realm in APIS:
+                    #url = ("%s?first_oauth_token=%s" % 
+                    #    (url_for('%s.finished' % realm, _external = True), token_key))
+                    session['original_token'] = token_key
+                    url = url_for('%s.finished' % realm, _external = True)
+                    resp = APIS[realm].authorize(
+                        callback = url, **APIS[realm].auth_params)
+                    
+                    return resp
             
-            return render_template(u"authorize.html", token=token_key,
-                realm = token['realm'].title())
+                return render_template(u"authorize.html", token=token_key,
+                    realm = token['realm'].title())
+                
+        # If we got here, it's because we don't recognize the client attempting 
+        # to connect. Send them an "unauthorized" error.
+        abort(403)
 
     @require_openid
     def register(self):
@@ -90,14 +97,19 @@ class BitTrailsProvider(OAuthProvider):
             }
             client = Client(**info)
             client['callbacks'].append(callback)
-            client['user_id'] = current_user.get_id()
+            client['user_id'] = g.user.get_id()
             client_id = client.insert()
-            current_user.client_ids.append(client_id)
-            User.get_collection().save(current_user)
+            
+            if not 'client_ids' in g.user:
+                g.user.client_ids = []
+                
+            g.user.client_ids.append(client_id)
+            g.user.save()
+            
             return render_template(u"client.html", **info)
         else:
             clients = Client.get_collection().find({'_id': {'$in': 
-                [ObjectId(oid) for oid in current_user.client_ids]}})
+                [ObjectId(oid) for oid in g.user.client_ids]}})
             
             return render_template(u"register.html", clients=clients)
             

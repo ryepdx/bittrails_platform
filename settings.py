@@ -1,3 +1,8 @@
+DATABASES = {
+    'default': 'platform',
+    'async': 'platform_async'
+}
+
 FITBIT_KEY = '9ccbbd64e65a4f5cbd6d69c90da5b2df'
 FITBIT_SECRET = 'e1f72277b86c4ec9ae306fcbcfbb6642'
 TWITTER_KEY = 'Qdu02XEsVCIEv15vQCnsQ'
@@ -12,7 +17,7 @@ GOOGLE_SECRET = 'FH_tIvjgavOjl96wPU67Agn_'
 ECHO_NEST_KEY = 'IBK1KKUMNX8MB7UHR'
 ECHO_NEST_ID_LIMIT = 10
 
-DATABASE = 'oauth_provider'#'bittrails_platform'
+HOST = "localhost"
 PORT = 5000
 DEBUG = False
 

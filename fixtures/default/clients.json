@@ -1,0 +1,14 @@
+[
+    {
+        "_id" : {"$oid": "51503651fb5d1b438e619757"},
+        "request_tokens" : [ ],
+        "user_id" : {"$oid": "515034d4fb5d1b438e619756"},
+        "description" : "A dashboard for the world's first personal analytics platform.",
+        "access_tokens" : [ ],
+        "callbacks" : [ "http://notebook:5001/" ],
+        "secret" : "Ka0dSMaJwy2xGuxcw13nCk5c9VnVUR",
+        "client_key" : "dAcFo8K6ArRC6zb3fZepVUvhGSU433",
+        "pubkey" : null,
+        "name" : "Bit Trails Dashboard"
+    }
+]

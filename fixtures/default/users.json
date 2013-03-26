@@ -1,0 +1,29 @@
+[
+    {
+        "_id" : {"$oid": "515034d4fb5d1b438e619756"}, 
+        "openid" : "https://profiles.google.com/ryepdx",
+        "confirmed" : true,
+        "client_ids" : [ {"$oid": "51503651fb5d1b438e619757"} ],
+        "name" : "Ryan C.",
+        "external_tokens" : { },
+        "email" : "xxxxx@xxxxx.com"
+    },
+    {
+       "_id":{"$oid":"515048c8fb5d1b4888b4acc5"},
+       "openid":"",
+       "confirmed":true,
+       "client_ids":[],
+       "name":"",
+       "external_tokens":{
+          "lastfm":"5256f60a4b3783f7799f1d51d5bc19ff",
+          "twitter":[
+             "1290237290-n7x3b1MNqyTtmSSPo7ehEhP24s0LrpX1zhHgCPE",
+             "YtmUOh0Ft6XZttIFZT1xaRnPqtN0ygxQuo3x8F3yo"
+          ],
+          "foursquare":"PT513B3OQR5BJRVQBSEXMOU0ELHIXSLD3VY3KNH2WER2Q1NI",
+          "google":"ya29.AHES6ZQ6Xqi0xzaLN3YeibouEOCu1jsDSYI5tjGbhA762Ec"
+       },
+       "refresh_tokens":{},
+       "email":""
+    }
+]
