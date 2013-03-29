@@ -22,6 +22,9 @@ def get_args():
     parser.add_argument('--unittests', dest='run_unittests',
         action='store_const', const = True, default = False,
         help='run unit tests')
+    parser.add_argument('--apitests', dest='run_apitests',
+        action='store_const', const = True, default = False,
+        help='run tests against the API server')
     parser.add_argument('--no-server', dest='run_server',
         action='store_const', const = False, default = True,
         help='do not start the server')
@@ -75,6 +78,9 @@ def main(args):
            
     if args.run_unittests:
         nose.run(argv = sys.argv[:1])
+        
+    if args.run_apitests:
+        nose.run(argv = ['nosetests', '-a', 'api_test', 'api/functional_tests.py'])
         
     if args.run_server:
         app.main(settings = settings, use_reloader = args.use_reloader)

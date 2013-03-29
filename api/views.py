@@ -203,6 +203,9 @@ def root_json_post(token):
     custom_path.title = request.form.get('title')
     custom_path.save()
     
+    # Run the CSV datastream task on this to get its data pulled in.
+    async_tasks.datastreams.tasks.CSVDatastreamTasks().run(custom_path)
+    
     return json.dumps({'_links':
         {'self': request.url_root + 'v1/' + path + '.json'},
          'title': custom_path.title,

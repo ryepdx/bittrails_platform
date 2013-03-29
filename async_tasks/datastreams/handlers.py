@@ -22,7 +22,7 @@ class CSVHandler(object):
             datum = self.model_class.find_or_create(
                 user_id = self.stream['user_id'],
                 client_id = self.stream['client_id'],
-                parent_path = (self.stream['parent_path'] 
+                parent_path = (self.stream.get('parent_path', '')
                     + self.stream['name'] + "/"),
                 timestamp = self.get_datetime(row)
             )

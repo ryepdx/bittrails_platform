@@ -3,9 +3,11 @@ import urllib2
 import string
 import json
 import logging
+import pytz
+import datetime
 from db.models import Model, mongodb_init
 from oauth_provider.models import User
-from ..models import LastPostRetrieved
+from ..models import LastPostRetrieved, LastCustomDataPull
 from handlers import (TwitterTweet, LastfmScrobble,
     GoogleCompletedTask, LastfmScrobbleEchonest, CSVHandler)
 from iterators import TwitterPosts, LastfmScrobbles, GoogleCompletedTasks
@@ -114,8 +116,15 @@ class CSVDatastreamTasks(object):
                 
             csv_file.close()
             
-        except:
+            # Update the "last pulled" timestamp.
+            last_pull = LastCustomDataPull.find_or_create(
+                path = stream.get('parent_path', '') + stream['name'] + '/',
+                user_id = stream['user_id'])
+            last_pull.last_pulled = datetime.datetime.now(pytz.utc)
+            last_pull.save()
+            
+        except Exception as e:
             # If there was an exception, log it.
             self.logger.exception(
-                "Exception while reading custom datastreams for user %s.\n"
-                    % stream['user_id'])
+                "Exception while reading custom datastreams for user %s: %s.\n"
+                    % (stream['user_id'], e.message))

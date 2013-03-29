@@ -9,7 +9,8 @@
         "_id" : {"$oid": "515048e2fb5d1b4888b4acce"},
         "datastream" : "google",
         "user_id" : {"$oid": "515048c8fb5d1b4888b4acc5"},
-        "uid" : "bittrails.testuser@gmail.com" }
+        "uid" : "bittrails.testuser@gmail.com"
+    },
     {
         "_id" : {"$oid": "515048f2fb5d1b4888b4acd3"},
         "datastream" : "foursquare",

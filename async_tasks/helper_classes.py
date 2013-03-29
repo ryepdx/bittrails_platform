@@ -36,6 +36,7 @@ class TimeSeriesQuery(object):
         pre_projection = dict([(dimension, '$_id.'+dimension
             ) for dimension in self.group_by])
         pre_projection['value'] = '$value'
+        pre_projection['_id'] = 0
         aggregation.append({"$project": pre_projection})
         
         aggregation += self.finish_aggregation()
@@ -124,33 +125,38 @@ class TimeSeriesQuery(object):
     def finish_aggregation(self):
         """Tack on the requested filters after we've done our transforms."""
         aggregation = []
-        
-        if self.match:
-            aggregation.append({'$match': self.match})
+        grouping = {}
+        post_projection = {}
         
         if self.aggregate:
-            grouping = {dimension: {'$'+aggregator: '$'+dimension}
-                for dimension, aggregator in self.aggregate.items()}
+            if self.match:
+                aggregation.append({'$match': self.match})
+            
+            # Add requested aggregators
+            post_projection.update({dimension: 1
+                for dimension in self.aggregate.keys()})
+                
+            grouping.update({dimension: {'$'+aggregator: '$'+dimension}
+                for dimension, aggregator in self.aggregate.items()})
+            grouping['_id'] = self.get_grouping_id()
                     
+            # Add requested groupings
             if self.group_by:
                 grouping['_id'] = {dimension: '$'+dimension
                     for dimension in self.group_by}
-            else:
-                grouping['_id'] = self.get_grouping_id()
-                
-            # Flatten the results and remove all internal-use fields.
-            post_projection = {dimension: 1
-                for dimension in self.aggregate.keys()}
-            post_projection.update({dimension: '$_id.' + dimension
-                for dimension in self.group_by})
-            post_projection['_id'] = 0 
+                post_projection.update({dimension: '$_id.' + dimension
+                    for dimension in self.group_by})
             
-            aggregation.append({'$group': grouping})
+            if grouping:
+                aggregation.append({'$group': grouping})
+                
+            # Remove all internal-use fields.
+            post_projection['_id'] = 0 
             aggregation.append({"$project": post_projection})
-        
+                
         if self.sort:
             aggregation.append({'$sort': bson.SON(self.sort)})
-            
+                
         return aggregation
         
     def get_grouping_id(self):

@@ -10,6 +10,19 @@ class AsyncModel(Model):
         return super(AsyncModel, cls).get_collection(database = database)
         
         
+class LastCustomDataPull(AsyncModel):
+    '''
+    Keeps track of when custom datastreams were last checked for updates.
+    '''
+    table = 'last_post_retrieved'
+    
+    @mongodb_init
+    def __init__(self, user_id = None, path = '', last_pulled = None):
+        self.user_id = user_id
+        self.path = path
+        self.last_pulled = last_pulled
+        
+        
 class LastPostRetrieved(AsyncModel):
     '''
     Saves state for the iterators.

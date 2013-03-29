@@ -16,7 +16,8 @@ def provide_oauth_token(_f):
             return _f(token, *args, **kwargs)
             
         else:
-            abort(400)
+            # No OAuth token? Give them an "unauthorized" response.
+            abort(403)
             
     return wrapped
 

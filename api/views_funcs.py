@@ -16,7 +16,8 @@ from flask import abort, request
 from oauth_provider.models import User, AccessToken, UID
 from oauthlib.common import add_params_to_uri
 from auth import APIS
-from async_tasks.models import TimeSeriesPath, TimeSeriesData
+from async_tasks.models import (TimeSeriesPath, TimeSeriesData,
+    LastCustomDataPull)
 from async_tasks.helper_classes import (
     UserTimeSeriesQuery, PathNotFoundException)
 
@@ -84,29 +85,57 @@ def get_directory(user, parent_path):
     # TODO: Add realm protection.
     url_prefix = request.url_root + 'v1'
     links = {'self': {'href': request.base_url}}
+    
+    # Check to make sure the requested path exists.
+    path_parts = parent_path.strip('/').rsplit('/', 1)
+    
+    if len(path_parts) > 1:
+        parent_path = path_parts[0]
+        name = path_parts[1]
+    else:
+        parent_path = None
+        name = path_parts[0]
         
-    # Get all the timeseries paths that have the specified parent path.
-    for path in TimeSeriesPath.get_collection().aggregate([
-    {'$match': {"user_id": user['_id'], "parent_path": parent_path}},
-    {'$group': {'_id': {'name':'$name', 'title':'$title'}}}])['result']:
-        links[path['_id']['name']] = {
-            'href': '%s/%s.json' % (url_prefix, parent_path + path['_id']['name'])
-        }
+    requested_path = TimeSeriesPath.find({'user_id': user['_id'],
+        'parent_path': parent_path,
+        'name': name })
+    
+    if requested_path.count() > 0:
         
-        # Include the title in the returned data if the path has one set.
-        if 'title' in path['_id']:
-            links[path['_id']['name']]['title'] = path['_id']['title']
+        # Get all the timeseries paths that have the specified parent path.
+        for path in TimeSeriesPath.get_collection().aggregate([
+        {'$match': {"user_id": user['_id'], "parent_path": parent_path}},
+        {'$group': {'_id': {'name':'$name', 'title':'$title'}}}])['result']:
+            links[path['_id']['name']] = { 'href': '%s/%s.json' % (url_prefix,
+            parent_path if parent_path else '' + path['_id']['name'])
+            }
             
-    return json.dumps({'_links': links})
+            # Include the title in the returned data if the path has one set.
+            if 'title' in path['_id']:
+                links[path['_id']['name']]['title'] = path['_id']['title']
+            
+        return json.dumps({'_links': links})
+        
+    else:
+        abort(404)
 
 def get_service_data_func(user, parent_path, leaf_name, request,
 query_class = UserTimeSeriesQuery):
+    # Check for the last complete pull of the requested data.
+    # If the data has not been pulled yet, say so.
+    if LastCustomDataPull.find(
+    {'path': parent_path.strip('/')+'/', 'user_id': user['_id']}).count() == 0:
+        abort(404)         
+    
     # Get the parent's title.
-    grandparent_path, parent_name = tuple(parent_path[0:-1].rsplit('/', 1))
-    parent_title = TimeSeriesPath.get_collection().find(
-        {'parent_path': grandparent_path+'/', 'name': parent_name}
-    ).distinct('title')
-    parent_title = parent_title[0] if len(parent_title) > 0 else None
+    if '/' in parent_path.strip('/'):
+        grandparent_path, parent_name = tuple(parent_path[0:-1].rsplit('/', 1))
+        parent_title = TimeSeriesPath.get_collection().find(
+            {'parent_path': grandparent_path+'/', 'name': parent_name}
+        ).distinct('title')
+        parent_title = parent_title[0] if len(parent_title) > 0 else None
+    else:
+        parent_title = None
 
     # Query parameters.
     match = json.loads(request.args.get('match', '{}'))
@@ -149,7 +178,7 @@ query_class = UserTimeSeriesQuery):
         links = {'self': {'href': request.base_url}}
         if parent_title:
             links['self']['title'] = '%s %s' % (leaf_name[0:-1], parent_title)
-            
+        
         return json.dumps({
             '_links': links,
             'data': query.get_data()

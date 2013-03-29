@@ -1,9 +1,6 @@
 [
-    { "_id" : {"$oid": "5146930015039271c09ee858"}, "parent_path" : "lastfm/scrobbles/echonest/energy/" },
     { "_id" : {"$oid": "514ab7da15039271c09ee85b"}, "name" : "google", "title" : "data from Google services" },
     { "_id" : {"$oid": "514ab7e815039271c09ee85c"}, "name" : "twitter", "title" : "data from Twitter" },
     { "_id" : {"$oid": "514ab7fe15039271c09ee85d"}, "name" : "lastfm", "title" : "data from Last.fm" },
-    { "_id" : {"$oid": "514ab83415039271c09ee85e"}, "name" : "foursquare", "title" : "data from Foursquare" },
-    { "_id" : {"$oid": "51468e5415039271c09ee855"}, "parent_path" : "lastfm/scrobbles/", "name" : "echonest", "title" : "number of scrobbles on Last.fm that Echonest recognized" },
-    { "_id" : {"$oid": "51468ecd15039271c09ee856"}, "parent_path" : "lastfm/scrobbles/echonest/", "name" : "energy", "title" : "energy level of songs scrobbled to Last.fm according to Echonest" }
+    { "_id" : {"$oid": "514ab83415039271c09ee85e"}, "name" : "foursquare", "title" : "data from Foursquare" }
 ]
