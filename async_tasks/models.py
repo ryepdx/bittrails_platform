@@ -3,10 +3,14 @@ import app as platform
 from json import JSONEncoder
 from db.models import Model, mongodb_init
 
+if 'DATABASES' in platform.app.config:
+    DEFAULT_DATABASE = platform.app.config['DATABASES']['async']
+else:
+    DEFAULT_DATABASE = 'platform_async'
+
 class AsyncModel(Model):
     @classmethod
-    def get_collection(cls,
-    database = platform.app.config['DATABASES']['async']):
+    def get_collection(cls, database = DEFAULT_DATABASE):
         return super(AsyncModel, cls).get_collection(database = database)
         
         

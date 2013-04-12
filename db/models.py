@@ -4,6 +4,11 @@ from db import get_connection
 from bson.objectid import ObjectId
 from functools import wraps
 
+if 'DATABASES' in platform.app.config:
+    DEFAULT_DATABASE = platform.app.config['DATABASES']['default']
+else:
+    DEFAULT_DATABASE = 'platform'
+
 def mongodb_init(f):
     @wraps(f)
     def init(self, *args, **kwargs):
@@ -22,8 +27,7 @@ class Model(dict):
         self.convert_ids()
     
     @classmethod
-    def get_collection(cls,
-    database = platform.app.config['DATABASES']['default']):
+    def get_collection(cls, database = DEFAULT_DATABASE):
         conn = get_connection(database)
         return conn[cls.table]
         

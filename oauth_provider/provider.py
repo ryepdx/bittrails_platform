@@ -38,7 +38,7 @@ class BitTrailsProvider(OAuthProvider):
         blueprint.add_url_rule(self.authorize_url, view_func=self.authorize,
                          methods=[u'GET', u'POST'])
 
-    #@require_openid
+    @require_openid
     def authorize(self):
         if request.method == u"POST" or 'done' in request.args:
             token = request.form.get("oauth_token")

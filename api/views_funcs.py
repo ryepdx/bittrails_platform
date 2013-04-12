@@ -92,15 +92,22 @@ def get_directory(user, parent_path):
     if len(path_parts) > 1:
         parent_path = path_parts[0]
         name = path_parts[1]
+        requested_path = TimeSeriesPath.find({'user_id': user['_id'],
+            'parent_path': parent_path, 'name': name })
     else:
         parent_path = None
         name = path_parts[0]
         
-    requested_path = TimeSeriesPath.find({'user_id': user['_id'],
-        'parent_path': parent_path,
-        'name': name })
+        # Top level directories don't have specific users associated with them.
+        # Instead we go off of the external_tokens dict.
+        if name in user['external_tokens'].keys():
+            requested_path = TimeSeriesPath.find({
+                'parent_path': {'$exists': False}, 'name': name })
+        else:
+            requested_path = None
+            
     
-    if requested_path.count() > 0:
+    if requested_path and requested_path.count() > 0:
         
         # Get all the timeseries paths that have the specified parent path.
         for path in TimeSeriesPath.get_collection().aggregate([
