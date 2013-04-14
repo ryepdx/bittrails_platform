@@ -7,7 +7,8 @@ from ..models import TimeSeriesData
 def main():
     one_hour = datetime.timedelta(hours = 1)
     now = datetime.datetime.now(pytz.utc)
-    last_one = TimeSeriesData.find({"parent_path":None}
+    last_one = TimeSeriesData.find({"parent_path":None, "timestamp":{"$exists":True},
+        "user_id": None, "name": None, "value": 0}
         ).sort("_id", pymongo.DESCENDING).limit(1)
     
     if last_one.count() > 0:

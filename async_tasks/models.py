@@ -109,7 +109,7 @@ class TimeSeriesData(TimeSeriesPath):
         return timestamp.replace(minute=0, second=0, microsecond=0)
         
     @mongodb_init
-    def __init__(self, value = 0, timestamp = None, name = 'total',
+    def __init__(self, value = 0, timestamp = None, name = 'totals',
     hour = None, day = None, week = None, month = None, year = None,
     isoyear = None, isoweek = None, isoweekday = None, **kwargs):
         assert timestamp
@@ -129,7 +129,7 @@ class TimeSeriesData(TimeSeriesPath):
     
     @property
     def path(self):
-        return self.parent_path + 'total'
+        return self.parent_path + 'totals'
         
     @property
     def children(self):

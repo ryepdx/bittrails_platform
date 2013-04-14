@@ -87,35 +87,19 @@ def get_directory(user, parent_path):
     links = {'self': {'href': request.base_url}}
     
     # Check to make sure the requested path exists.
-    path_parts = parent_path.strip('/').rsplit('/', 1)
-    
-    if len(path_parts) > 1:
-        parent_path = path_parts[0]
-        name = path_parts[1]
-        requested_path = TimeSeriesPath.find({'user_id': user['_id'],
-            'parent_path': parent_path, 'name': name })
-    else:
-        parent_path = None
-        name = path_parts[0]
-        
-        # Top level directories don't have specific users associated with them.
-        # Instead we go off of the external_tokens dict.
-        if name in user['external_tokens'].keys():
-            requested_path = TimeSeriesPath.find({
-                'parent_path': {'$exists': False}, 'name': name })
-        else:
-            requested_path = None
-            
+    parent_path = parent_path.strip('/')
+    parent_path = parent_path + "/"
+    requested_path = TimeSeriesPath.find({'user_id': user['_id'],
+        'parent_path': parent_path })
     
     if requested_path and requested_path.count() > 0:
-        
         # Get all the timeseries paths that have the specified parent path.
-        for path in TimeSeriesPath.get_collection().aggregate([
-        {'$match': {"user_id": user['_id'], "parent_path": parent_path}},
-        {'$group': {'_id': {'name':'$name', 'title':'$title'}}}])['result']:
+        for path in TimeSeriesPath.get_collection().aggregate(
+        [{'$match': {"user_id": user['_id'], "parent_path": parent_path}},
+        {'$group': {'_id': {'name':'$name', 'title':'$title'}}}]
+        )['result']:
             links[path['_id']['name']] = { 'href': '%s/%s.json' % (url_prefix,
-            parent_path if parent_path else '' + path['_id']['name'])
-            }
+                (parent_path if parent_path else '') + path['_id']['name'])}
             
             # Include the title in the returned data if the path has one set.
             if 'title' in path['_id']:
@@ -128,11 +112,6 @@ def get_directory(user, parent_path):
 
 def get_service_data_func(user, parent_path, leaf_name, request,
 query_class = UserTimeSeriesQuery):
-    # Check for the last complete pull of the requested data.
-    # If the data has not been pulled yet, say so.
-    if LastCustomDataPull.find(
-    {'path': parent_path.strip('/')+'/', 'user_id': user['_id']}).count() == 0:
-        abort(404)         
     
     # Get the parent's title.
     if '/' in parent_path.strip('/'):
@@ -191,6 +170,12 @@ query_class = UserTimeSeriesQuery):
             'data': query.get_data()
         })
     except PathNotFoundException:
+        
+        # Check for the last complete pull of the requested data.
+        # If the data has not been pulled yet, say so.
+        #if LastCustomDataPull.find({'path': parent_path.strip('/')+'/',
+        #'user_id': user['_id']}).count() == 0:
+        #    abort(404)        
         abort(404)
 
 def get_correlations(user, paths, group_by, start, end, sort, window_size,
