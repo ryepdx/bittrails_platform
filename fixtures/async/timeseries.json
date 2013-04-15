@@ -2,5 +2,6 @@
     { "_id" : {"$oid": "514ab7da15039271c09ee85b"}, "name" : "google", "title" : "data from Google services" },
     { "_id" : {"$oid": "514ab7e815039271c09ee85c"}, "name" : "twitter", "title" : "data from Twitter" },
     { "_id" : {"$oid": "514ab7fe15039271c09ee85d"}, "name" : "lastfm", "title" : "data from Last.fm" },
-    { "_id" : {"$oid": "514ab83415039271c09ee85e"}, "name" : "foursquare", "title" : "data from Foursquare" }
+    { "_id" : {"$oid": "514ab83415039271c09ee85e"}, "name" : "foursquare", "title" : "data from Foursquare" },
+    { "_id" : {"$oid": "516b92cd4023d9466a1d232e"}, "week" : 1, "timestamp" : {"$date": "2000-01-03T00:00:00Z"}, "isoweekday" : 1, "month" : 1, "year" : 2000, "day" : 3, "isoyear" : 2000, "user_id" : null, "name" : null, "hour" : 0, "value" : 0, "parent_path" : null, "isoweek" : 1 }
 ]
