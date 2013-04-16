@@ -1,10 +1,10 @@
 #!/bin/bash
-
+cd ..
 sudo apt-get -y install python2.7 git python-setuptools gcc python-dev
 mkdir packages
 cd packages
-git clone https://github.com/ryepdx/flask-oauthprovider.git
-git clone https://github.com/ryepdx/flask-rauth.git
+git clone https://github.com/ib-lundgren/flask-oauthprovider.git
+git clone https://github.com/joelverhagen/flask-rauth.git
 git clone https://github.com/litl/rauth.git
 cd flask-oauthprovider
 sudo python setup.py install
@@ -13,11 +13,10 @@ sudo python setup.py install
 cd ../rauth
 sudo python setup.py install
 cd ../..
-git clone https://github.com/ryepdx/bittrails_platform.git
 cd bittrails_platform
 sudo easy_install pip
 sudo pip install -r requirements.txt
-sudo pip install iso8601 nose pytz
+sudo pip install iso8601 nose pytz pymongo
 cd ..
 sudo sh -c 'echo "deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen" > /etc/apt/sources.list.d/10gen.list'
 wget http://nginx.org/keys/nginx_signing.key
