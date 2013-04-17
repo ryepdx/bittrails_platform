@@ -1,18 +1,8 @@
 #!/bin/bash
 cd ..
 sudo apt-get -y install python2.7 git python-setuptools gcc python-dev
-mkdir packages
-cd packages
-git clone https://github.com/ib-lundgren/flask-oauthprovider.git
-git clone https://github.com/joelverhagen/flask-rauth.git
-git clone https://github.com/litl/rauth.git
-cd flask-oauthprovider
-sudo python setup.py install
-cd ../flask-rauth
-sudo python setup.py install
-cd ../rauth
-sudo python setup.py install
-cd ../..
+git clone https://github.com/ryepdx/bittrails_platform_site-packages.git
+mv bittrails_platform_site-packages /usr/lib/python2.7/site-packages
 cd bittrails_platform
 sudo easy_install pip
 sudo pip install -r requirements.txt

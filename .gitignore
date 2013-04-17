@@ -2,6 +2,7 @@
 bittrails.db
 settings_local.py
 *.swp
+.vagrant/*
 
 # C extensions
 *.so
