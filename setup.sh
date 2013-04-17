@@ -23,6 +23,6 @@ sudo sh -c 'echo "stop on runlevel [06]\n\n" >> /etc/init/uwsgi.conf'
 sudo sh -c 'echo "respawn\n\n" >> /etc/init/uwsgi.conf'
 sudo sh -c 'echo "exec uwsgi --master --processes 4 --die-on-term --uid uwsgi --gid nginx --socket /tmp/uwsgi.sock --chmod-socket 660 --no-site --vhost --logto /var/log/uwsgi.log" >> /etc/init/uwsgi.conf'
 sudo apt-get install mongodb-10gen
-# cd bittrails_platform
-# python -m async_tasks.datastreams.fill_zeroes
-# cd ..
+cd bittrails_platform
+python -m async_tasks.datastreams.fill_zeroes
+cd ..
