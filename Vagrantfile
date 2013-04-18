@@ -13,3 +13,7 @@ Vagrant.configure("2") do |config|
     aws.ami = ""
   end
 end
+
+Vagrant::Config.run do |config|
+  config.vm.forward_port 5000, 5000
+end
