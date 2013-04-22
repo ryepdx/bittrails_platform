@@ -11,8 +11,7 @@ git clone https://github.com/ryepdx/bittrails_platform_site-packages.git
 sudo mv bittrails_platform_site-packages /usr/local/lib/python2.7/dist-packages
 cd bittrails_platform
 sudo easy_install pip
-sudo pip install -r requirements.txt
-sudo pip install iso8601 nose pytz pymongo flask
+sudo pip install --upgrade numpy
 cd ..
 sudo apt-get -y install nginx
 sudo pip install uwsgi
