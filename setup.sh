@@ -12,7 +12,7 @@ mv bittrails_platform_site-packages /usr/lib/python2.7/dist-packages
 cd bittrails_platform
 sudo easy_install pip
 sudo pip install -r requirements.txt
-sudo pip install iso8601 nose pytz pymongo
+sudo pip install iso8601 nose pytz pymongo flask
 cd ..
 sudo apt-get -y install nginx
 sudo pip install uwsgi
