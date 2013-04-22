@@ -1,3 +1,4 @@
+DATABASE_PORT = 27017
 DATABASES = {
     'default': 'platform',
     'async': 'platform_async'
