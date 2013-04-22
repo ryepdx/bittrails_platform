@@ -8,7 +8,7 @@ sudo apt-key adv --keyserver keyserver.ubuntu.com --recv 7F0CEB10
 sudo apt-get -y update
 sudo apt-get -y install python2.7 git python-setuptools gcc python-dev
 git clone https://github.com/ryepdx/bittrails_platform_site-packages.git
-mv bittrails_platform_site-packages /usr/local/lib/python2.7/dist-packages
+sudo mv bittrails_platform_site-packages /usr/local/lib/python2.7/dist-packages
 cd bittrails_platform
 sudo easy_install pip
 sudo pip install -r requirements.txt
