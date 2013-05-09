@@ -3,14 +3,11 @@ import settings
 
 app = flask.Flask(__name__)
 
-def setup_app(settings):
+def setup_app(settings, app = app):
     app.secret_key = settings.APP_SECRET_KEY
     app.config['TRAP_BAD_REQUEST_ERRORS'] = settings.DEBUG
     app.config['DATABASES'] = settings.DATABASES
     app.config['DATABASE_PORT'] = settings.DATABASE_PORT
-
-def main(settings = settings, use_reloader = False):
-    setup_app(settings)    
     
     import auth
     import oauth_provider.signals
@@ -34,6 +31,11 @@ def main(settings = settings, use_reloader = False):
     login_manager = flask.ext.login.LoginManager()
     login_manager.setup_app(app)
     oauth_provider.signals.connect_signals(app)
+
+    return app
+
+def main(settings = settings, use_reloader = False):
+    setup_app(settings)    
     
     if settings.DEBUG:
         @app.route('/url_map')
