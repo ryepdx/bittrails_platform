@@ -19,7 +19,7 @@ ECHO_NEST_ID_LIMIT = 10
 
 HOST = "localhost"
 PORT = 5000
-DEBUG = False
+DEBUG = True 
 
 # Override any of the above settings if they are specified in settings_local.py
 from settings_local import *
